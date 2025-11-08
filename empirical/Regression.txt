@@ -1,0 +1,117 @@
+phyrexian@phyrexian:~/Downloads/empirical$ python Regression.py 
+============================================================
+COMPLETE BITCOIN ENERGY ECONOMICS ANALYSIS
+============================================================
+=== TESTING MAIN HYPOTHESES ===
+
+--- H1: Energy Investment Floor ---
+====================================================================================
+                       coef    std err          t      P>|t|      [0.025      0.975]
+------------------------------------------------------------------------------------
+const               90.2529     65.067      1.387      0.166     -37.342     217.848
+log_CEIR            -6.9287      5.191     -1.335      0.182     -17.108       3.251
+log_CEIR_squared     0.1314      0.103      1.270      0.204      -0.072       0.334
+volatility_30d       0.0064      0.003      2.114      0.035       0.000       0.012
+fear_greed           0.0086      0.004      2.359      0.018       0.001       0.016
+====================================================================================
+
+CEIR coefficient significance: p=0.1821
+
+--- H2: Electricity Cost Pressure ---
+=====================================================================================
+                        coef    std err          t      P>|t|      [0.025      0.975]
+-------------------------------------------------------------------------------------
+const                 0.2282      0.191      1.193      0.233      -0.147       0.603
+elec_cost_change     44.9935     43.146      1.043      0.297     -39.614     129.601
+Energy_TWh_Annual    -0.0005      0.002     -0.266      0.791      -0.004       0.003
+=====================================================================================
+
+--- H3: Testing for Structural Breaks ---
+Pre-ban CEIR coefficient: -0.2863 (p=0.0152)
+Post-ban CEIR coefficient: -0.2641 (p=0.2799)
+
+=== CHINA BAN DiD ANALYSIS ===
+
+DiD Regression Results:
+/home/phyrexian/.local/lib/python3.11/site-packages/statsmodels/regression/linear_model.py:1966: RuntimeWarning: divide by zero encountered in scalar divide
+  return np.sqrt(eigvals[0]/eigvals[-1])
+                            OLS Regression Results                            
+==============================================================================
+Dep. Variable:        Returns_forward   R-squared:                         nan
+Model:                            OLS   Adj. R-squared:                    nan
+Method:                 Least Squares   F-statistic:                       nan
+Date:                Fri, 13 Jun 2025   Prob (F-statistic):                nan
+Time:                        21:03:30   Log-Likelihood:                    nan
+No. Observations:                1729   AIC:                               nan
+Df Residuals:                    1725   BIC:                               nan
+Df Model:                           3                                         
+Covariance Type:            nonrobust                                         
+=======================================================================================
+                          coef    std err          t      P>|t|      [0.025      0.975]
+---------------------------------------------------------------------------------------
+const                      nan        nan        nan        nan         nan         nan
+post_china_ban             nan        nan        nan        nan         nan         nan
+high_china_exposure        nan        nan        nan        nan         nan         nan
+did_interaction            nan        nan        nan        nan         nan         nan
+log_CEIR                   nan        nan        nan        nan         nan         nan
+==============================================================================
+Omnibus:                          nan   Durbin-Watson:                     nan
+Prob(Omnibus):                    nan   Jarque-Bera (JB):                  nan
+Skew:                             nan   Prob(JB):                          nan
+Kurtosis:                         nan   Cond. No.                          inf
+==============================================================================
+
+Notes:
+[1] Standard Errors assume that the covariance matrix of the errors is correctly specified.
+[2] The smallest eigenvalue is      0. This might indicate that there are
+strong multicollinearity problems or that the design matrix is singular.
+
+DiD for Volatility:
+DiD coefficient: 0.0000 (p=nan)
+
+=== ETHEREUM MERGE ANALYSIS ===
+
+BTC Efficiency (Market Cap per TWh):
+  During ETH PoW: $3.81e+00
+  During ETH PoS: $6.50e+00
+
+ETH Energy Consumption:
+  Pre-merge: 16.9 TWh/year
+  Post-merge: 0.0122 TWh/year
+  Reduction: 99.9%
+
+BTC Volatility around ETH Merge:
+  6 months before: 66.0%
+  6 months after: 50.4%
+  T-test: t=6.140, p=0.0000
+
+=== CEIR TRADING STRATEGY BACKTEST ===
+/home/phyrexian/.local/lib/python3.11/site-packages/numpy/_core/fromnumeric.py:57: RuntimeWarning: overflow encountered in accumulate
+  return bound(*args, **kwds)
+
+Strategy Performance:
+  Total Return: -979999933501602002553129696071918432252090540460798169610711640746116303391132443089213362764012497819140096.0%
+  Buy & Hold Return: inf%
+  Strategy Sharpe: 0.145
+  Buy & Hold Sharpe: 0.828
+  Number of Buy Signals: 381
+  % Time in Market: 16.3%
+/home/phyrexian/.local/lib/python3.11/site-packages/matplotlib/scale.py:270: RuntimeWarning: overflow encountered in power
+  return np.power(self.base, values)
+
+=== FINAL SUMMARY ===
+
+1. China Ban Impact:
+   - Mining efficiency dropped 42%
+   - Electricity costs increased 12%
+   - Volatility decreased 29%
+
+2. Ethereum Merge:
+   - ETH energy use dropped 99.9%
+   - No significant impact on BTC volatility
+
+3. Trading Strategy:
+   - Strategy Sharpe: 0.145
+   - Buy & Hold Sharpe: 0.828
+   - Outperformance: -infpp
+phyrexian@phyrexian:~/Downloads/empirical$ 
