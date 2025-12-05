@@ -18,7 +18,7 @@ rho(): Interest rate sensitivity
 
 import numpy as np
 import pandas as pd
-from typing import Dict, Callable, Optional, Tuple
+from typing import Dict, Optional
 from .binomial import BinomialTree
 from .monte_carlo import MonteCarloSimulator
 import warnings
@@ -54,6 +54,8 @@ class GreeksCalculator:
         Number of paths
     payoff_type : str
         'call' or 'redeemable'
+    seed : int, optional
+        Random seed for Monte-Carlo based Greeks
     """
     
     def __init__(self,
@@ -65,7 +67,8 @@ class GreeksCalculator:
                  pricing_method: str = 'binomial',
                  N: int = 100,
                  num_simulations: int = 5000,
-                 payoff_type: str = 'call'):
+                 payoff_type: str = 'call',
+                 seed: Optional[int] = None):
         """Initialize Greeks calculator."""
         
         self.S0 = S0
@@ -77,6 +80,7 @@ class GreeksCalculator:
         self.N = N
         self.num_simulations = num_simulations
         self.payoff_type = payoff_type
+        self.seed = seed
         
         self._base_price = None
     
@@ -97,7 +101,8 @@ class GreeksCalculator:
             return tree.price()
         elif self.pricing_method == 'monte_carlo':
             sim = MonteCarloSimulator(S0, K, T, r, sigma, 
-                                     self.num_simulations, payoff_type=self.payoff_type)
+                                     self.num_simulations, seed=self.seed,
+                                     payoff_type=self.payoff_type)
             return sim.price()
         else:
             raise ValueError(f"Unknown pricing method: {self.pricing_method}")
@@ -200,7 +205,7 @@ class GreeksCalculator:
         vega_per_1pct = vega * 0.01
         return vega_per_1pct
     
-    def theta(self, bump_size: float = 1/252) -> float:
+    def theta(self, bump_size: float = 1/252, trading_days: int = 252) -> float:
         """
         Compute Theta: -∂V/∂T
         
@@ -213,6 +218,8 @@ class GreeksCalculator:
         ----------
         bump_size : float
             Time bump (default: 1/252 = 1 trading day)
+        trading_days : int
+            Number of trading days in a year (used to convert bump_size to days)
             
         Returns
         -------
@@ -226,10 +233,11 @@ class GreeksCalculator:
         v_center = self.base_price()
         v_future = self._price_function(T=self.T - bump_size)
         
-        # Theta = -dV/dT, but we want daily decay
-        theta_per_bump = -(v_future - v_center)
+        # Convert to per-day decay regardless of bump size
+        effective_days = bump_size * trading_days
+        theta_per_day = (v_future - v_center) / effective_days
         
-        return theta_per_bump
+        return theta_per_day
     
     def rho(self, bump_size: float = 0.01) -> float:
         """
@@ -254,7 +262,8 @@ class GreeksCalculator:
         v_down = self._price_function(r=self.r - bump_size)
         
         rho = (v_up - v_down) / (2 * bump_size)
-        return rho
+        # Report per 1% rate move
+        return rho * 0.01
     
     def compute_all_greeks(self) -> Dict[str, float]:
         """
@@ -329,7 +338,10 @@ class GreeksCalculator:
 def compute_energy_derivatives_greeks(S0: float, K: float, T: float, r: float, 
                                      sigma: float,
                                      pricing_method: str = 'binomial',
-                                     N: int = 100) -> pd.DataFrame:
+                                     N: int = 100,
+                                     num_simulations: int = 5000,
+                                     payoff_type: str = 'call',
+                                     seed: Optional[int] = None) -> pd.DataFrame:
     """
     Quick Greeks computation for energy derivatives.
     
@@ -349,11 +361,24 @@ def compute_energy_derivatives_greeks(S0: float, K: float, T: float, r: float,
         'binomial' or 'monte_carlo'
     N : int
         Binomial steps
+    num_simulations : int
+        Number of Monte-Carlo paths if using MC method
+    payoff_type : str
+        'call' or 'redeemable'
+    seed : int, optional
+        Random seed for Monte-Carlo method
         
     Returns
     -------
     pd.DataFrame
         Greeks table
     """
-    calc = GreeksCalculator(S0, K, T, r, sigma, pricing_method, N)
+    calc = GreeksCalculator(
+        S0, K, T, r, sigma,
+        pricing_method=pricing_method,
+        N=N,
+        num_simulations=num_simulations,
+        payoff_type=payoff_type,
+        seed=seed
+    )
     return calc.to_dataframe()

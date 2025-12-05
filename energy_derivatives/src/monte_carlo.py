@@ -82,9 +82,7 @@ class MonteCarloSimulator:
         self.sigma = sigma
         self.num_simulations = num_simulations
         self.payoff_type = payoff_type
-        
-        if seed is not None:
-            np.random.seed(seed)
+        self.rng = np.random.default_rng(seed)
         
         self.terminal_prices = None
         self.payoffs = None
@@ -116,7 +114,7 @@ class MonteCarloSimulator:
             paths[:, 0] = self.S0
             
             for step in range(1, num_steps + 1):
-                Z = np.random.normal(0, 1, self.num_simulations)
+                Z = self.rng.normal(0, 1, self.num_simulations)
                 paths[:, step] = paths[:, step-1] * np.exp(
                     (self.r - 0.5 * self.sigma ** 2) * dt + 
                     self.sigma * np.sqrt(dt) * Z
@@ -126,7 +124,7 @@ class MonteCarloSimulator:
             return paths
         else:
             # Compute terminal prices only (more efficient)
-            Z = np.random.normal(0, 1, self.num_simulations)
+            Z = self.rng.normal(0, 1, self.num_simulations)
             self.terminal_prices = self.S0 * np.exp(
                 (self.r - 0.5 * self.sigma ** 2) * self.T + 
                 self.sigma * np.sqrt(self.T) * Z
@@ -270,6 +268,7 @@ class MonteCarloSimulator:
         if volatilities is None:
             volatilities = np.arange(0.05, 1.05, 0.05)
         
+        base_price = self._price_cache if self._price_cache is not None else self.price(num_steps)
         results = []
         for vol in volatilities:
             sim = MonteCarloSimulator(self.S0, self.K, self.T, self.r, vol,
@@ -278,7 +277,7 @@ class MonteCarloSimulator:
             results.append({
                 'Volatility': f"{vol:.1%}",
                 'Price': price,
-                'Change': price - (self._price_cache or np.nan)
+                'Change': price - base_price
             })
         
         return pd.DataFrame(results)

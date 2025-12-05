@@ -25,11 +25,13 @@ from . import monte_carlo
 from . import sensitivities
 from . import plots
 from . import data_loader
+from . import live_data
 
 __all__ = [
     'binomial',
     'monte_carlo', 
     'sensitivities',
     'plots',
-    'data_loader'
+    'data_loader',
+    'live_data'
 ]

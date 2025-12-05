@@ -15,12 +15,58 @@ load_parameters(): Load all parameters for derivative pricing
 
 import numpy as np
 import pandas as pd
-from typing import Dict, Tuple, Optional
+from typing import Dict, Optional
 import warnings
-import os
+from pathlib import Path
+
+REQUIRED_COLUMNS = ["Date", "Price", "Market_Cap"]
 
 
-def load_ceir_data(data_dir: str = '../empirical') -> pd.DataFrame:
+def validate_ceir_schema(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Ensure CEIR dataframe has required columns and datatypes.
+    """
+    missing = [c for c in REQUIRED_COLUMNS if c not in df.columns]
+    if missing:
+        raise ValueError(f"Missing required columns: {missing}")
+
+    # Coerce numeric fields
+    df = df.copy()
+    df["Price"] = pd.to_numeric(df["Price"], errors="coerce")
+    df["Market_Cap"] = pd.to_numeric(df["Market_Cap"], errors="coerce")
+
+    # Ensure Date is datetime
+    df["Date"] = pd.to_datetime(df["Date"])
+    return df
+
+
+def _resolve_data_directory(data_dir: str, use_repo_fallback: bool = True) -> Optional[Path]:
+    """
+    Resolve the data directory with sensible fallbacks.
+
+    Returns
+    -------
+    Optional[Path]
+        Path object if the directory exists, otherwise None.
+    """
+    candidate = Path(data_dir)
+    if candidate.exists():
+        return candidate
+
+    if use_repo_fallback:
+        # Fallback: look for empirical folder at repo root
+        repo_root_candidate = Path(__file__).resolve().parents[2] / "empirical"
+        if repo_root_candidate.exists():
+            warnings.warn(f"Data directory {data_dir} not found, using {repo_root_candidate}")
+            return repo_root_candidate
+
+    warnings.warn(f"Data directory {data_dir} not found and no fallback available")
+    return None
+
+
+def load_ceir_data(data_dir: str = '../empirical',
+                   use_repo_fallback: bool = True,
+                   use_live_if_missing: bool = False) -> pd.DataFrame:
     """
     Load CEIR data from empirical folder.
     
@@ -28,18 +74,29 @@ def load_ceir_data(data_dir: str = '../empirical') -> pd.DataFrame:
     ----------
     data_dir : str
         Path to empirical data directory
+    use_repo_fallback : bool
+        If True, fall back to repo-level empirical folder when not found
+    use_live_if_missing : bool
+        If True, fetch live data when local data is missing
         
     Returns
     -------
     pd.DataFrame
         DataFrame with Date, Price, Energy_TWh_Annual, Market_Cap, CEIR
     """
-    
-    # Try to find files in empirical folder
-    if not os.path.exists(data_dir):
-        warnings.warn(f"Data directory {data_dir} not found, using synthetic data")
+
+    resolved_dir = _resolve_data_directory(data_dir, use_repo_fallback=use_repo_fallback)
+    if resolved_dir is None:
+        if use_live_if_missing:
+            try:
+                from .live_data import load_or_fetch_live_ceir
+                live_df = load_or_fetch_live_ceir()
+                if not live_df.empty:
+                    return validate_ceir_schema(live_df)
+            except Exception as exc:
+                warnings.warn(f"Live data fetch failed: {exc}")
         return _generate_synthetic_ceir_data()
-    
+
     try:
         # Load Bitcoin price data
         btc_data_candidates = [
@@ -47,11 +104,11 @@ def load_ceir_data(data_dir: str = '../empirical') -> pd.DataFrame:
             'bitcoin_ceir_complete.csv',
             'btc_ds_parsed.csv'
         ]
-        
+
         btc_file = None
         for candidate in btc_data_candidates:
-            path = os.path.join(data_dir, candidate)
-            if os.path.exists(path):
+            path = resolved_dir / candidate
+            if path.exists():
                 btc_file = path
                 break
         
@@ -76,19 +133,27 @@ def load_ceir_data(data_dir: str = '../empirical') -> pd.DataFrame:
                 df['Price'] = df['Open']
             elif 'Close' in df.columns:
                 df['Price'] = df['Close']
+        df['Price'] = pd.to_numeric(df['Price'], errors='coerce')
         
         # Load energy data if available
-        energy_file = os.path.join(data_dir, 'btc_con.csv')
-        if os.path.exists(energy_file):
+        energy_file = resolved_dir / 'btc_con.csv'
+        if energy_file.exists():
             energy_df = pd.read_csv(energy_file)
             energy_df['DateTime'] = pd.to_datetime(energy_df['DateTime'])
             energy_df['Date'] = energy_df['DateTime'].dt.date
             energy_df = energy_df.rename(columns={'Estimated TWh per Year': 'Energy_TWh_Annual'})
             
             df['Date_only'] = df['Date'].dt.date
-            df = df.merge(energy_df[['Date', 'Energy_TWh_Annual']].drop_duplicates('Date', keep='first'),
-                         left_on='Date_only', right_on='Date', how='left')
+            df = df.merge(
+                energy_df[['Date', 'Energy_TWh_Annual']].drop_duplicates('Date', keep='first'),
+                left_on='Date_only',
+                right_on='Date',
+                how='left',
+                suffixes=('', '_energy')
+            )
             df = df.drop('Date_only', axis=1)
+            if 'Date_energy' in df.columns:
+                df = df.drop('Date_energy', axis=1)
         
         # Compute market cap if not present
         if 'Market_Cap' not in df.columns:
@@ -96,11 +161,13 @@ def load_ceir_data(data_dir: str = '../empirical') -> pd.DataFrame:
             days_since_start = (df['Date'] - df['Date'].min()).dt.days
             df['Supply'] = 21e6 - (21e6 - 17e6) * np.exp(-0.693 * days_since_start / (4 * 365))
             df['Market_Cap'] = df['Price'] * df['Supply']
+        df['Market_Cap'] = pd.to_numeric(df['Market_Cap'], errors='coerce')
         
         # Compute CEIR if not present
         if 'CEIR' not in df.columns and 'Energy_TWh_Annual' in df.columns:
             df = compute_ceir_column(df)
         
+        df = validate_ceir_schema(df)
         return df.sort_values('Date').reset_index(drop=True)
     
     except Exception as e:
@@ -208,20 +275,25 @@ def compute_energy_price(ceir_df: pd.DataFrame,
     np.ndarray
         Energy unit prices
     """
+    ceir_series = pd.to_numeric(ceir_df['CEIR'], errors='coerce')
+    ceir_series = ceir_series.replace([np.inf, -np.inf], np.nan).ffill().bfill()
     
-    ceir_values = ceir_df['CEIR'].values
+    positive_ceir = ceir_series[ceir_series > 0]
+    if positive_ceir.empty:
+        warnings.warn("CEIR series is empty or non-positive; using flat energy price of 1.0")
+        return np.ones(len(ceir_series))
     
-    # Energy price is derived from CEIR
-    # Normalize to $1 at initial date
-    energy_prices = ceir_values / ceir_values[0]
+    baseline = positive_ceir.iloc[0]
+    energy_prices = ceir_series / baseline
     
     # If normalization date specified, rescale
     if normalization_date:
         norm_date = pd.Timestamp(normalization_date)
         norm_idx = (ceir_df['Date'] - norm_date).abs().argmin()
-        energy_prices = energy_prices / energy_prices[norm_idx]
+        if energy_prices.iloc[norm_idx] != 0:
+            energy_prices = energy_prices / energy_prices.iloc[norm_idx]
     
-    return energy_prices
+    return energy_prices.to_numpy()
 
 
 def estimate_volatility(price_series: np.ndarray, 
@@ -241,17 +313,29 @@ def estimate_volatility(price_series: np.ndarray,
     float
         Annualized volatility
     """
-    
-    returns = np.diff(np.log(price_series))
+    prices = np.asarray(price_series, dtype=float)
+    prices = prices[np.isfinite(prices) & (prices > 0)]
+    if len(prices) < 2:
+        warnings.warn("Not enough valid price points to estimate volatility; defaulting to 20%")
+        return 0.20
+
+    returns = np.diff(np.log(prices))
+    returns = returns[np.isfinite(returns)]
+    if len(returns) == 0:
+        warnings.warn("No finite returns found; defaulting to 20% volatility")
+        return 0.20
+
     daily_vol = np.std(returns)
     annualized_vol = daily_vol * np.sqrt(periods)
     
-    return annualized_vol
+    return float(annualized_vol)
 
 
 def load_parameters(data_dir: str = '../empirical',
                    T: float = 1.0,
-                   r: float = 0.05) -> Dict:
+                   r: float = 0.05,
+                   use_repo_fallback: bool = True,
+                   use_live_if_missing: bool = False) -> Dict:
     """
     Load all parameters for derivative pricing from empirical data.
     
@@ -263,6 +347,10 @@ def load_parameters(data_dir: str = '../empirical',
         Time to maturity (years)
     r : float
         Risk-free rate
+    use_repo_fallback : bool
+        If True, fall back to repo-level empirical folder when not found
+    use_live_if_missing : bool
+        If True, attempt to fetch live data if local data is missing
         
     Returns
     -------
@@ -277,23 +365,30 @@ def load_parameters(data_dir: str = '../empirical',
     """
     
     # Load CEIR data
-    ceir_df = load_ceir_data(data_dir)
+    ceir_df = load_ceir_data(data_dir, use_repo_fallback=use_repo_fallback,
+                             use_live_if_missing=use_live_if_missing)
     
     # Compute energy price
     energy_prices = compute_energy_price(ceir_df)
     
     # Estimate volatility
     sigma = estimate_volatility(energy_prices)
+    if not np.isfinite(sigma) or sigma <= 0:
+        warnings.warn("Estimated volatility is non-positive; defaulting to 20%")
+        sigma = 0.20
     
     # Get current price (latest)
     S0 = energy_prices[-1]
+    if not np.isfinite(S0) or S0 <= 0:
+        warnings.warn("Invalid S0 derived from CEIR data; defaulting to 1.0")
+        S0 = 1.0
     
     # Strike price (at-the-money)
     K = S0
     
     params = {
         'S0': S0,
-        'sigma': sigma,
+        'sigma': sigma if np.isfinite(sigma) and sigma > 0 else 0.20,
         'T': T,
         'r': r,
         'K': K,
