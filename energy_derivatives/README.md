@@ -1,6 +1,55 @@
 # Energy-Backed Derivatives Pricing Framework
 
+[![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Research Software](https://img.shields.io/badge/status-research--ready-green.svg)](RESEARCH_USE_NOTICE.md)
+
 A rigorous quantitative framework for pricing renewable energy-backed digital assets using modern derivative pricing theory.
+
+## ⚠️ Research Software Notice
+
+**Version:** 0.2.0-research | **Status:** Research-Grade Software
+
+This is research-grade software for academic use. See [RESEARCH_USE_NOTICE.md](RESEARCH_USE_NOTICE.md) for full details.
+
+**✅ Validated for:** Academic research, education, methodology validation, proof-of-concept
+**❌ Not validated for:** Production financial systems, real money trading
+
+## Installation
+
+### Quick Start (Research Release)
+
+```bash
+# Install the stable research release
+pip install git+https://github.com/YOUR_USERNAME/solarpunk-bitcoin.git@v0.2.0-research
+```
+
+### Development Installation
+
+```bash
+# Clone the repository
+git clone https://github.com/YOUR_USERNAME/solarpunk-bitcoin.git
+cd solarpunk-bitcoin
+
+# Install with optional dependencies
+pip install -e ".[viz,dev]"    # Visualization + development tools
+pip install -e ".[all]"         # All optional dependencies
+```
+
+### Basic Usage
+
+```python
+from data_loader_nasa import load_solar_parameters
+from binomial import BinomialTree
+
+# Load solar parameters (Taiwan by default)
+params = load_solar_parameters()
+
+# Price a call option
+tree = BinomialTree(**params, N=1000, payoff_type='call')
+price = tree.price()
+print(f"Option price: ${price:.6f}")
+```
 
 ## Overview
 
