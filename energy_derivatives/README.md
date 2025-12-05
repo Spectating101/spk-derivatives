@@ -9,7 +9,23 @@ This project develops and implements a comprehensive framework for pricing **ene
 - **Binomial Option Pricing Model (BOPM)** for exact pricing
 - **Monte-Carlo Simulation** for stress testing and confidence intervals
 - **Greeks Calculation** for risk management and hedging
-- **Empirical CEIR Data** for calibration to real Bitcoin/energy economics
+- **Dual Data Sources**: Bitcoin CEIR + NASA Solar Data for calibration
+
+### Data Sources
+
+**Two parallel calibration paths**:
+
+1. **Bitcoin CEIR Data** (`data_loader.py`)
+   - Historical Bitcoin price and energy consumption (2018-2025)
+   - Demonstrates energy costs as fundamental value anchors
+   - Lower volatility (~70%), suitable for crypto derivatives
+
+2. **NASA Solar Data** (`data_loader_nasa.py`) **⭐ NEW**
+   - Real satellite-derived solar irradiance (2020-2024)
+   - Location: Taoyuan, Taiwan (24.99°N, 121.30°E)
+   - Source: NASA POWER API (Global Horizontal Irradiance)
+   - Higher volatility (200% deseasoned), captures weather risk
+   - Direct application to renewable energy derivatives
 
 ### Connection to CEIR
 
@@ -23,6 +39,7 @@ This project extends CEIR theory by:
 2. Applying rigorous no-arbitrage derivative pricing
 3. Computing comprehensive risk metrics (Greeks)
 4. Enabling portfolio hedging and risk management
+5. **NEW**: Calibrating with real NASA satellite data for solar energy
 
 ## Project Structure
 
@@ -43,6 +60,13 @@ energy_derivatives/
 ├── requirements.txt             # Python dependencies
 └── README.md                    # This file
 ```
+
+### Reproducibility & Data
+- Monte-Carlo uses a per-instance RNG; pass `seed=` for deterministic paths.
+- `load_parameters(data_dir=..., use_repo_fallback=True)` will fall back to the repo `empirical/` folder; set `use_repo_fallback=False` to force synthetic data for demos/tests.
+- Theta is returned as per-day time decay (negative for long calls); Rho is quoted per 1% rate change.
+- Optional live fetch: `load_parameters(..., use_live_if_missing=True)` will pull recent BTC data from CoinGecko with synthetic energy estimates if local data is missing.
+- Services: FastAPI (`energy_derivatives.api.main`) and Streamlit dashboard (`energy_derivatives/frontend/app.py`) ship as ready-to-run surfaces.
 
 ## Key Modules
 
@@ -184,6 +208,53 @@ cd energy_derivatives
 # Install dependencies
 pip install -r requirements.txt
 ```
+
+### Testing (optional)
+```bash
+pytest energy_derivatives/tests
+```
+
+### API Server (FastAPI)
+```bash
+uvicorn energy_derivatives.api.main:app --reload
+# Then POST to /price, /greeks, /stress
+# Optional: set API_KEY env and pass header x-api-key
+```
+
+### Streamlit Dashboard
+```bash
+streamlit run energy_derivatives/frontend/app.py
+```
+
+### Export Snapshot for Oracle
+```bash
+python energy_derivatives/src/export_snapshot.py
+# writes energy_derivatives/results/snapshot.json
+```
+
+### Generate Report (Markdown + optional PDF)
+```bash
+python energy_derivatives/src/report.py
+# or: make report
+```
+
+### Docker Builds
+```bash
+make docker-api         # builds API image (Dockerfile.api)
+make docker-dashboard   # builds Streamlit image (Dockerfile.dashboard)
+docker-compose up --build  # run API + dashboard together
+```
+
+### Makefile shortcuts
+- `make api` / `make dashboard`
+- `make tests-python` / `make tests-solidity`
+- `make export-snapshot`
+- `make tests-security` (dockerized Slither)
+- `make report`
+
+### Lockfiles
+- `energy_derivatives/requirements-lock.txt` pins Python deps
+- `blockchain/package-lock.json` pins JS deps
 
 ### Quick Start
 

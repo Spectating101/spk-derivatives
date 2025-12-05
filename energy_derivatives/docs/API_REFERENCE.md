@@ -9,6 +9,7 @@ Complete API documentation for the Energy Derivatives Pricing Framework.
 3. [sensitivities.py](#sensitivities)
 4. [plots.py](#plots)
 5. [data_loader.py](#data_loader)
+6. [data_loader_nasa.py](#data_loader_nasa)
 
 ---
 
@@ -231,7 +232,8 @@ GreeksCalculator(
     pricing_method: str = 'binomial',  # 'binomial' or 'monte_carlo'
     N: int = 100,                      # Binomial steps
     num_simulations: int = 5000,       # MC paths
-    payoff_type: str = 'call'
+    payoff_type: str = 'call',
+    seed: Optional[int] = None         # RNG seed for MC reproducibility
 )
 ```
 
@@ -263,14 +265,14 @@ def vega(bump_size: float = 0.01) -> float
 ```python
 def theta(bump_size: float = 1/252) -> float
 ```
-- Daily time decay
-- Default: 1 trading day
+- Daily time decay (per-day change; negative for long calls)
+- Default: 1 trading day bump
 
 ```python
 def rho(bump_size: float = 0.01) -> float
 ```
 - Price sensitivity to 1% interest rate change
-- Normalized to per-1% change convention
+- Normalized to per-1% change convention (per 1% move)
 
 ```python
 def compute_all_greeks() -> Dict[str, float]
@@ -299,7 +301,10 @@ def compute_energy_derivatives_greeks(
     r: float,
     sigma: float,
     pricing_method: str = 'binomial',
-    N: int = 100
+    N: int = 100,
+    num_simulations: int = 5000,
+    payoff_type: str = 'call',
+    seed: Optional[int] = None
 ) -> pd.DataFrame
 ```
 - Quick Greeks computation
@@ -419,9 +424,15 @@ def plot_price_comparison(
 ### Functions
 
 ```python
-def load_ceir_data(data_dir: str = '../empirical') -> pd.DataFrame
+def load_ceir_data(
+    data_dir: str = '../empirical',
+    use_repo_fallback: bool = True,
+    use_live_if_missing: bool = False
+) -> pd.DataFrame
 ```
 - Loads CEIR data from empirical folder
+- `use_repo_fallback=True` falls back to repo `empirical/`
+- `use_live_if_missing=True` will attempt a live CoinGecko fetch if files are missing
 - Returns: DataFrame with Date, Price, Energy_TWh_Annual, Market_Cap, CEIR
 - Falls back to synthetic data if files not found
 
@@ -456,17 +467,125 @@ def estimate_volatility(
 def load_parameters(
     data_dir: str = '../empirical',
     T: float = 1.0,
-    r: float = 0.05
+    r: float = 0.05,
+    use_repo_fallback: bool = True,
+    use_live_if_missing: bool = False
 ) -> Dict
 ```
 - Loads all parameters for derivative pricing
 - Returns: Dict with S0, sigma, T, r, K, ceir_df, energy_prices
 - **Key convenience function**
+- `use_repo_fallback=True` will fall back to repo `empirical/` folder when `data_dir` is missing; set to False to force synthetic data (useful in tests)
+- `use_live_if_missing=True` will attempt a live fetch when no local data is found
 
 ```python
 def get_ceir_summary(ceir_df: pd.DataFrame) -> Dict
 ```
 - Summary statistics (min, max, mean, current values)
+
+---
+
+## data_loader_nasa.py
+
+**NEW**: Real NASA satellite data integration for solar energy derivatives.
+
+### Functions
+
+```python
+def fetch_nasa_solar_data(
+    latitude: float = 24.99,
+    longitude: float = 121.30,
+    start_date: str = "20200101",
+    end_date: str = "20241231"
+) -> pd.DataFrame
+```
+- Fetches solar irradiance data from NASA POWER API
+- **Default location**: Taoyuan, Taiwan (24.99°N, 121.30°E)
+- **Parameter**: ALLSKY_SFC_SW_DWN (Global Horizontal Irradiance)
+- **Returns**: DataFrame with Date and GHI (kW-hr/m²/day)
+- **API**: https://power.larc.nasa.gov/api
+
+```python
+def deseasonalize_solar_data(df: pd.DataFrame) -> pd.DataFrame
+```
+- Removes seasonal patterns from solar irradiance
+- **Method**: 30-day rolling mean subtraction
+- Returns: DataFrame with `GHI_deseasoned` column
+- **Purpose**: Isolates weather-driven volatility from predictable cycles
+
+```python
+def compute_solar_volatility(
+    df: pd.DataFrame,
+    periods: int = 365
+) -> float
+```
+- Computes annualized volatility from deseasoned solar data
+- **Default**: 365 days/year (solar data is daily)
+- **Returns**: Annualized standard deviation (e.g., 2.00 = 200%)
+
+```python
+def load_solar_parameters(
+    latitude: float = 24.99,
+    longitude: float = 121.30,
+    T: float = 1.0,
+    r: float = 0.05,
+    electricity_price: float = 0.12
+) -> Dict
+```
+- **Main convenience function** for solar derivatives pricing
+- Fetches NASA data, deseasonalizes, computes volatility
+- **Returns**: Dict with S0, sigma, T, r, K, solar_df
+- **Key parameters**:
+  - `electricity_price`: $/kWh for energy valuation (default: $0.12)
+  - `S0`: Derived from current solar price in $/kWh-equivalent
+  - `sigma`: Deseasoned volatility (typically ~200%)
+
+```python
+def get_solar_summary(params: Dict) -> Dict
+```
+- Summary statistics for NASA solar data
+- **Returns**: location, date range, GHI statistics, volatility, pricing parameters
+
+### Example Usage
+
+```python
+from src.data_loader_nasa import load_solar_parameters, get_solar_summary
+from src.binomial import BinomialTree
+from src.monte_carlo import MonteCarloSimulator
+
+# Load NASA solar data
+params = load_solar_parameters(
+    latitude=24.99,   # Taoyuan, Taiwan
+    longitude=121.30,
+    T=1.0,
+    r=0.05
+)
+
+# View summary
+summary = get_solar_summary(params)
+print(f"Location: {summary['location']}")
+print(f"Solar volatility: {summary['volatility']:.2%}")
+
+# Price solar energy derivatives
+tree = BinomialTree(**params, N=1000, payoff_type='call')
+binomial_price = tree.price()
+
+sim = MonteCarloSimulator(**params, num_simulations=100000)
+mc_price = sim.price()
+
+print(f"Binomial: ${binomial_price:.6f}")
+print(f"Monte-Carlo: ${mc_price:.6f}")
+```
+
+### Data Characteristics
+
+| Metric | Bitcoin CEIR | NASA Solar |
+|--------|--------------|------------|
+| **Source** | CoinGecko + empirical | NASA POWER API |
+| **Volatility** | ~70% (crypto) | ~200% (weather) |
+| **Frequency** | Daily price data | Daily irradiance |
+| **Use case** | Crypto-backed derivatives | Renewable energy hedging |
+| **Period** | 2018-2025 | 2020-2024 |
 
 ---
 
