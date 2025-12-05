@@ -121,71 +121,114 @@ def fetch_nasa_data(
     return df
 
 
-def get_volatility_params(df: pd.DataFrame, window: int = 365,
-                         deseason: bool = True,
-                         cap_volatility: float = 2.0) -> Tuple[float, pd.DataFrame]:
+def get_volatility_params(
+    df: pd.DataFrame,
+    window: int = 365,
+    deseason: bool = True,
+    method: str = 'log',
+    cap_volatility: Optional[float] = None
+) -> Tuple[float, pd.DataFrame]:
     """
     Calculates the Annualized Volatility (Sigma) from solar irradiance data.
 
     Parameters
     ----------
     df : pd.DataFrame
-        DataFrame with GHI column
+        DataFrame with GHI column and DatetimeIndex
     window : int
-        Trading periods per year for annualization (default: 365)
+        Trading periods per year for annualization (default: 365 for daily data)
     deseason : bool
-        If True, remove seasonal component before calculating volatility
-    cap_volatility : float
-        Maximum volatility (default: 2.0 = 200%) to prevent numerical issues
+        If True, remove seasonal component before calculating volatility.
+        Recommended for solar data to isolate weather-driven risk.
+    method : str
+        Method for calculating returns:
+        - 'log' (recommended): Log returns, symmetric and stable
+        - 'pct_change': Simple percentage change (legacy, can create artifacts)
+        - 'normalized': Normalized by mean GHI
+    cap_volatility : Optional[float]
+        Optional cap on volatility for numerical stability.
+        If None, no capping applied. If provided, caps at this level (e.g., 2.0 for 200%).
 
     Returns
     -------
     Tuple[float, pd.DataFrame]
         (annualized_volatility, dataframe_with_returns)
+
+    Notes
+    -----
+    The 'log' method is recommended as it:
+    - Handles small denominators gracefully
+    - Treats up/down moves symmetrically
+    - Is standard practice in quantitative finance
+    - Avoids artifacts from pct_change() on physical quantities
+
+    Examples
+    --------
+    >>> df = fetch_nasa_data()
+    >>> sigma, df_with_returns = get_volatility_params(df, method='log')
+    >>> print(f"Volatility: {sigma:.2%}")
     """
 
     df = df.copy()
 
-    # If deseason=True, remove seasonal component
+    # Step 1: Deseasonalization (if requested)
     if deseason:
-        # Add month column
         df['Month'] = df.index.month
-
-        # Calculate monthly average GHI
         monthly_avg = df.groupby('Month')['GHI'].transform('mean')
-
-        # Deseasonalized GHI = actual / monthly_average
         df['GHI_Deseason'] = df['GHI'] / monthly_avg
-
-        # Calculate returns on deseasonalized data
-        df['Returns'] = df['GHI_Deseason'].pct_change()
-
-        print(f"   ℹ️  Deseasoning applied: removes summer/winter cycles")
+        source_data = df['GHI_Deseason']
+        print(f"   ℹ️  Deseasoning applied: removes predictable seasonal cycles")
     else:
-        # Calculate daily % change in raw solar output
-        df['Returns'] = df['GHI'].pct_change()
+        source_data = df['GHI']
 
-    # Remove infinite/NaN values
+    # Step 2: Calculate returns using specified method
+    if method == 'log':
+        # Log returns: log(P_t / P_{t-1})
+        # Most stable for finance applications
+        df['Returns'] = np.log(source_data / source_data.shift(1))
+    elif method == 'pct_change':
+        # Simple returns: (P_t - P_{t-1}) / P_{t-1}
+        # Can create artifacts with small denominators
+        df['Returns'] = source_data.pct_change()
+    elif method == 'normalized':
+        # Normalized changes: (P_t - P_{t-1}) / mean(P)
+        # Alternative that avoids small denominator issue
+        mean_value = source_data.mean()
+        df['Returns'] = (source_data - source_data.shift(1)) / mean_value
+    else:
+        raise ValueError(
+            f"Unknown volatility method: '{method}'. "
+            f"Must be one of: 'log', 'pct_change', 'normalized'"
+        )
+
+    # Step 3: Clean returns
     valid_returns = df['Returns'].replace([np.inf, -np.inf], np.nan).dropna()
 
     if len(valid_returns) < 2:
-        warnings.warn("Not enough valid returns to estimate volatility; defaulting to 20%")
+        warnings.warn(
+            "Not enough valid returns to estimate volatility; defaulting to 20%"
+        )
         return 0.20, df
 
-    # Standard Deviation of daily returns
+    # Step 4: Calculate volatility
     daily_vol = valid_returns.std()
-
-    # Annualize using Root-Mean-Square Rule: σ_annual = σ_daily × √periods
     annual_vol = daily_vol * np.sqrt(window)
 
-    # Cap volatility to prevent numerical issues in Monte-Carlo
-    if annual_vol > cap_volatility:
-        warnings.warn(f"Volatility {annual_vol:.2%} exceeds cap {cap_volatility:.0%}, capping for numerical stability")
+    # Step 5: Apply cap if specified
+    if cap_volatility is not None and annual_vol > cap_volatility:
+        warnings.warn(
+            f"Volatility {annual_vol:.2%} exceeds cap {cap_volatility:.0%}. "
+            f"Capping for numerical stability. "
+            f"Consider using method='log' or increasing cap if this is unexpected."
+        )
         annual_vol = cap_volatility
 
-    # Sanity check
+    # Step 6: Sanity check
     if not np.isfinite(annual_vol) or annual_vol <= 0:
-        warnings.warn(f"Invalid volatility {annual_vol}; defaulting to 20%")
+        warnings.warn(
+            f"Invalid volatility {annual_vol}; defaulting to 20%. "
+            f"Check input data for issues."
+        )
         annual_vol = 0.20
 
     return float(annual_vol), df
@@ -235,7 +278,10 @@ def load_solar_parameters(
     T: float = 1.0,
     r: float = 0.05,
     energy_value_per_kwh: float = 0.10,
-    cache: bool = True
+    cache: bool = True,
+    volatility_method: str = 'log',
+    volatility_cap: Optional[float] = None,
+    deseason: bool = True
 ) -> Dict:
     """
     Load all parameters for solar derivative pricing from NASA data.
@@ -243,21 +289,31 @@ def load_solar_parameters(
     Parameters
     ----------
     lat : float
-        Latitude (default: Taoyuan, Taiwan)
+        Latitude (default: 24.99 for Taoyuan, Taiwan)
     lon : float
-        Longitude (default: Taoyuan, Taiwan)
+        Longitude (default: 121.30 for Taoyuan, Taiwan)
     start : int
-        Start year
+        Start year for data fetching
     end : int
-        End year
+        End year for data fetching
     T : float
-        Time to maturity (years)
+        Time to maturity in years
     r : float
-        Risk-free rate
+        Risk-free rate (annualized)
     energy_value_per_kwh : float
-        Economic value per kWh
+        Economic value per kWh of energy
     cache : bool
-        Use cached data if available
+        Use cached NASA data if available
+    volatility_method : str
+        Method for volatility calculation:
+        - 'log': Log returns (recommended, default)
+        - 'pct_change': Simple percentage change
+        - 'normalized': Normalized by mean
+    volatility_cap : Optional[float]
+        Optional cap on volatility. If None, no capping.
+        Example: 2.0 for 200% cap.
+    deseason : bool
+        Remove seasonal patterns before calculating volatility
 
     Returns
     -------
@@ -267,17 +323,35 @@ def load_solar_parameters(
         - sigma: Estimated volatility (from solar data)
         - T: Time to maturity
         - r: Risk-free rate
-        - K: Strike price (set to current price)
-        - ghi_df: Full GHI DataFrame
+        - K: Strike price (set to current price, ATM)
+        - ghi_df: Full GHI DataFrame with returns
         - energy_prices: Array of daily energy prices
         - location: Dict with lat/lon
+        - volatility_method: Method used for calculation
+        - volatility_capped: Whether capping was applied
+
+    Examples
+    --------
+    >>> # Default (recommended): log returns, no cap
+    >>> params = load_solar_parameters()
+
+    >>> # With capping at 200%
+    >>> params = load_solar_parameters(volatility_cap=2.0)
+
+    >>> # Different location
+    >>> params = load_solar_parameters(lat=33.45, lon=-112.07)  # Phoenix, AZ
     """
 
     # Fetch NASA data
     ghi_df = fetch_nasa_data(lat, lon, start, end, cache)
 
-    # Calculate volatility
-    sigma, ghi_df = get_volatility_params(ghi_df)
+    # Calculate volatility with specified method
+    sigma, ghi_df = get_volatility_params(
+        ghi_df,
+        method=volatility_method,
+        cap_volatility=volatility_cap,
+        deseason=deseason
+    )
 
     # Compute energy prices
     energy_prices = compute_solar_price(ghi_df, energy_value_per_kwh)
@@ -287,6 +361,10 @@ def load_solar_parameters(
 
     # Strike price (at-the-money)
     K = S0
+
+    # Check if volatility was capped
+    volatility_capped = (volatility_cap is not None and
+                        'exceeds cap' in str(warnings.filters))
 
     params = {
         'S0': S0,
@@ -303,7 +381,10 @@ def load_solar_parameters(
         },
         'data_source': 'NASA POWER API',
         'parameter': 'ALLSKY_SFC_SW_DWN (GHI)',
-        'date_range': f"{start}-{end}"
+        'date_range': f"{start}-{end}",
+        'volatility_method': volatility_method,
+        'volatility_cap': volatility_cap,
+        'deseasonalized': deseason
     }
 
     return params
