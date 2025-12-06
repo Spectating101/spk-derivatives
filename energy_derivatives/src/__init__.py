@@ -30,6 +30,7 @@ from . import plots
 from . import data_loader
 from . import data_loader_nasa
 from . import live_data
+from . import context_translator
 
 # Import commonly used functions for convenience
 from .data_loader_nasa import load_solar_parameters, fetch_nasa_solar_data
@@ -37,6 +38,15 @@ from .data_loader import load_parameters
 from .binomial import BinomialTree
 from .monte_carlo import monte_carlo_option_price
 from .sensitivities import calculate_greeks
+
+# Import context translator (sophistication layer)
+from .context_translator import (
+    SolarSystemContext,
+    PriceTranslator,
+    VolatilityTranslator,
+    GreeksTranslator,
+    create_contextual_summary
+)
 
 __all__ = [
     # Modules
@@ -47,6 +57,7 @@ __all__ = [
     'data_loader',
     'data_loader_nasa',
     'live_data',
+    'context_translator',
 
     # Convenience functions
     'load_solar_parameters',
@@ -55,4 +66,11 @@ __all__ = [
     'BinomialTree',
     'monte_carlo_option_price',
     'calculate_greeks',
+
+    # Context translation (sophistication layer)
+    'SolarSystemContext',
+    'PriceTranslator',
+    'VolatilityTranslator',
+    'GreeksTranslator',
+    'create_contextual_summary',
 ]
