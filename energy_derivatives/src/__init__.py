@@ -31,6 +31,7 @@ from . import data_loader
 from . import data_loader_nasa
 from . import live_data
 from . import context_translator
+from . import results_manager
 
 # Import commonly used functions for convenience
 from .data_loader_nasa import load_solar_parameters, fetch_nasa_data
@@ -48,6 +49,16 @@ from .context_translator import (
     create_contextual_summary
 )
 
+# Import results manager (professional workflow)
+from .results_manager import (
+    PricingResult,
+    ResultsComparator,
+    PricingValidator,
+    batch_price,
+    comparative_context,
+    break_even_analysis
+)
+
 __all__ = [
     # Modules
     'binomial',
@@ -58,6 +69,7 @@ __all__ = [
     'data_loader_nasa',
     'live_data',
     'context_translator',
+    'results_manager',
 
     # Convenience functions
     'load_solar_parameters',
@@ -73,4 +85,12 @@ __all__ = [
     'VolatilityTranslator',
     'GreeksTranslator',
     'create_contextual_summary',
+
+    # Results management (professional workflow)
+    'PricingResult',
+    'ResultsComparator',
+    'PricingValidator',
+    'batch_price',
+    'comparative_context',
+    'break_even_analysis',
 ]
