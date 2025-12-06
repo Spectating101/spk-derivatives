@@ -33,7 +33,7 @@ from . import live_data
 from . import context_translator
 
 # Import commonly used functions for convenience
-from .data_loader_nasa import load_solar_parameters, fetch_nasa_solar_data
+from .data_loader_nasa import load_solar_parameters, fetch_nasa_data
 from .data_loader import load_parameters
 from .binomial import BinomialTree
 from .monte_carlo import monte_carlo_option_price
@@ -61,7 +61,7 @@ __all__ = [
 
     # Convenience functions
     'load_solar_parameters',
-    'fetch_nasa_solar_data',
+    'fetch_nasa_data',
     'load_parameters',
     'BinomialTree',
     'monte_carlo_option_price',
