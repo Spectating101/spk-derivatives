@@ -6,7 +6,7 @@ This demonstrates the numerical robustness of the pricing engine by
 comparing two independent methods at extreme volatility.
 """
 
-from solar_quant import load_solar_parameters, BinomialTree, monte_carlo_option_price
+from spk_derivatives import load_solar_parameters, BinomialTree, monte_carlo_option_price
 import numpy as np
 
 def main():

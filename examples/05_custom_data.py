@@ -8,7 +8,7 @@ instead of NASA data.
 
 import pandas as pd
 import numpy as np
-from solar_quant import BinomialTree, calculate_greeks
+from spk_derivatives import BinomialTree, calculate_greeks
 
 def load_custom_solar_data():
     """

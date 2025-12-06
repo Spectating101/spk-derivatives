@@ -1,34 +1,34 @@
 """
-Setup configuration for solar-quant package
+Setup configuration for spk-derivatives package
 """
 from setuptools import setup, find_packages
 from pathlib import Path
 
 # Read long description from README
-readme_file = Path(__file__).parent / "energy_derivatives" / "README.md"
+readme_file = Path(__file__).parent / "README.md"
 if readme_file.exists():
     long_description = readme_file.read_text(encoding='utf-8')
 else:
-    long_description = "Solar energy derivatives pricing framework with NASA satellite data integration"
+    long_description = "SPK Derivatives: Quantitative pricing framework for solar energy derivatives with NASA satellite data"
 
 setup(
-    name="solar-quant",
+    name="spk-derivatives",
     version="0.2.0",
     description="Quantitative pricing framework for solar energy derivatives using NASA satellite data",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    author="Solarpunk Bitcoin Team",
-    author_email="contact@solarpunk.example.com",  # Update with real email
-    url="https://github.com/YOUR_USERNAME/solarpunk-bitcoin",  # Update with real URL
+    author="SPK Derivatives Team",
+    author_email="s1133958@mail.yzu.edu.tw",
+    url="https://github.com/Spectating101/spk-derivatives",
     project_urls={
-        "Bug Reports": "https://github.com/YOUR_USERNAME/solarpunk-bitcoin/issues",
-        "Source": "https://github.com/YOUR_USERNAME/solarpunk-bitcoin",
-        "Documentation": "https://github.com/YOUR_USERNAME/solarpunk-bitcoin/blob/main/energy_derivatives/README.md",
+        "Bug Reports": "https://github.com/Spectating101/spk-derivatives/issues",
+        "Source": "https://github.com/Spectating101/spk-derivatives",
+        "Documentation": "https://github.com/Spectating101/spk-derivatives/blob/main/README.md",
     },
 
     # Package structure
-    packages=find_packages(where="energy_derivatives"),
-    package_dir={"": "energy_derivatives"},
+    packages=["spk_derivatives"],
+    package_dir={"spk_derivatives": "energy_derivatives/spk_derivatives"},
 
     # Python version requirement
     python_requires=">=3.8",
@@ -138,7 +138,7 @@ setup(
     # Entry points for command-line tools
     entry_points={
         "console_scripts": [
-            "solar-quant=solar_quant.cli:main",  # To be implemented
+            "spk-derivatives=spk_derivatives.cli:main",  # To be implemented
         ],
     },
 

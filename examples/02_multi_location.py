@@ -6,7 +6,7 @@ This shows how to price solar derivatives for multiple geographic locations
 and compare their characteristics.
 """
 
-from solar_quant import load_solar_parameters, BinomialTree
+from spk_derivatives import load_solar_parameters, BinomialTree
 import pandas as pd
 
 def price_location(name, lat, lon):

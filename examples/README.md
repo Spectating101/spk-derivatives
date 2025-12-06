@@ -1,4 +1,4 @@
-# Solar Quant Examples
+# SPK Derivatives Examples
 
 Practical examples showing how to use the solar derivatives pricing library.
 
@@ -38,7 +38,7 @@ python 01_quick_start.py
 **Simplest possible usage - 5 lines of code**
 
 ```python
-from solar_quant import load_solar_parameters, BinomialTree
+from spk_derivatives import load_solar_parameters, BinomialTree
 
 params = load_solar_parameters()
 tree = BinomialTree(**params, N=100, payoff_type='call')
@@ -184,7 +184,7 @@ price = tree.price()
 
 ### Pattern 1: Quick Price Check
 ```python
-from solar_quant import load_solar_parameters, BinomialTree
+from spk_derivatives import load_solar_parameters, BinomialTree
 
 params = load_solar_parameters()
 price = BinomialTree(**params, N=100, payoff_type='call').price()
@@ -208,7 +208,7 @@ params = load_solar_parameters(volatility_method='normalized')
 
 ### Pattern 5: Greeks Calculation
 ```python
-from solar_quant import calculate_greeks
+from spk_derivatives import calculate_greeks
 
 greeks = calculate_greeks(S0=0.05, K=0.05, T=1.0, r=0.05, sigma=2.0)
 print(f"Delta: {greeks['delta']:.3f}")
@@ -218,7 +218,7 @@ print(f"Delta: {greeks['delta']:.3f}")
 
 ## Troubleshooting
 
-### "ImportError: No module named 'solar_quant'"
+### "ImportError: No module named 'spk_derivatives'"
 
 **Solution:**
 ```bash

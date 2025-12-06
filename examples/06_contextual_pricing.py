@@ -8,8 +8,8 @@ outputs into grounded, relatable context.
 Not dumbing down - adding value through practical translation.
 """
 
-from solar_quant import load_solar_parameters, BinomialTree, calculate_greeks
-from solar_quant.context_translator import (
+from spk_derivatives import load_solar_parameters, BinomialTree, calculate_greeks
+from spk_derivatives.context_translator import (
     SolarSystemContext,
     PriceTranslator,
     VolatilityTranslator,

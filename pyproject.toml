@@ -3,16 +3,16 @@ requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "solar-quant"
+name = "spk-derivatives"
 version = "0.2.0"
 description = "Quantitative pricing framework for solar energy derivatives using NASA satellite data"
-readme = "energy_derivatives/README.md"
+readme = "README.md"
 license = {text = "MIT"}
 authors = [
-    {name = "Solarpunk Bitcoin Team", email = "contact@solarpunk.example.com"}
+    {name = "SPK Derivatives Team", email = "s1133958@mail.yzu.edu.tw"}
 ]
 maintainers = [
-    {name = "Solarpunk Bitcoin Team", email = "contact@solarpunk.example.com"}
+    {name = "SPK Derivatives Team", email = "s1133958@mail.yzu.edu.tw"}
 ]
 keywords = [
     "solar",
@@ -81,16 +81,17 @@ all = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/YOUR_USERNAME/solarpunk-bitcoin"
-Documentation = "https://github.com/YOUR_USERNAME/solarpunk-bitcoin/blob/main/energy_derivatives/README.md"
-Repository = "https://github.com/YOUR_USERNAME/solarpunk-bitcoin"
-"Bug Reports" = "https://github.com/YOUR_USERNAME/solarpunk-bitcoin/issues"
+Homepage = "https://github.com/Spectating101/spk-derivatives"
+Documentation = "https://github.com/Spectating101/spk-derivatives/blob/main/README.md"
+Repository = "https://github.com/Spectating101/spk-derivatives"
+"Bug Reports" = "https://github.com/Spectating101/spk-derivatives/issues"
 
 [project.scripts]
-solar-quant = "solar_quant.cli:main"
+spk-derivatives = "spk_derivatives.cli:main"
 
 [tool.setuptools]
-packages = ["energy_derivatives"]
+packages = ["spk_derivatives"]
+package-dir = {"spk_derivatives" = "energy_derivatives/spk_derivatives"}
 
 [tool.black]
 line-length = 100

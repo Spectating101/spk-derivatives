@@ -6,7 +6,7 @@ This shows how to calculate option Greeks (Delta, Gamma, Theta, Vega, Rho)
 and interpret them for risk management.
 """
 
-from solar_quant import load_solar_parameters, calculate_greeks, BinomialTree
+from spk_derivatives import load_solar_parameters, calculate_greeks, BinomialTree
 
 def main():
     print("\n" + "="*70)

@@ -5,7 +5,7 @@ Quick Start Example: Price a Solar Call Option in 5 Lines
 This is the absolute simplest way to use the library.
 """
 
-from solar_quant import load_solar_parameters, BinomialTree
+from spk_derivatives import load_solar_parameters, BinomialTree
 
 # Load Taiwan solar data from NASA (automatic)
 params = load_solar_parameters()
