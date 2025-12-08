@@ -1,0 +1,73 @@
+{
+  "params": {
+    "S0": 0.051628,
+    "K": 0.051628,
+    "T": 1.0,
+    "r": 0.05,
+    "sigma": 2.0,
+    "volatility_method": "log",
+    "volatility_cap": 2.0,
+    "deseasonalized": true,
+    "location": {
+      "latitude": 24.99,
+      "longitude": 121.3,
+      "name": "Taoyuan, Taiwan"
+    },
+    "data_source": "NASA POWER API",
+    "parameter": "ALLSKY_SFC_SW_DWN (GHI)",
+    "date_range": "2020-2024",
+    "_source": "nasa_api_or_cache"
+  },
+  "pricing": {
+    "binomial_price": 0.03563674613277419,
+    "mc_price": 0.03348906020598824,
+    "mc_low": 0.02928455147350862,
+    "mc_high": 0.03769356893846786
+  },
+  "greeks": {
+    "delta": 0.8469203142365754,
+    "gamma": 64.57100074086762,
+    "vega": 0.00012170071214742326,
+    "theta": -5.000440096990938e-05,
+    "rho": 8.112390642806694e-05
+  },
+  "comparison_table": "\n================================================================================\nPRICING COMPARISON (3 scenarios)\n================================================================================\n\nMetric              Taiwan              Arizona             Spain               \n--------------------------------------------------------------------------------\nOption Price        $0.035633           $0.046344           $0.036130           \nPremium %           69.02               %69.02               %69.02               %\n\nGREEKS\n--------------------------------------------------------------------------------\nDelta               0.846920            0.846920            0.846920            \nGamma               64.571001           49.646626           63.682884           \nTheta               -0.000050           -0.000065           -0.000051           \nVega                0.000122            0.000158            0.000123            \nRho                 0.000081            0.000106            0.000082            \n\nPARAMETERS\n--------------------------------------------------------------------------------\nS0                  0.0516              0.0671              0.0523              \nK                   0.0516              0.0671              0.0523              \nT                   1.0000              1.0000              1.0000              \nr                   5.00                %5.00                %5.00                %\nsigma               200.00              %200.00              %200.00              %\n\n================================================================================\n",
+  "result": {
+    "option_price": 0.03563674613277419,
+    "greeks": {
+      "delta": 0.8469203142365754,
+      "gamma": 64.57100074086762,
+      "vega": 0.00012170071214742326,
+      "theta": -5.000440096990938e-05,
+      "rho": 8.112390642806694e-05
+    },
+    "params": {
+      "S0": 0.051628,
+      "K": 0.051628,
+      "T": 1.0,
+      "r": 0.05,
+      "sigma": 2.0,
+      "volatility_method": "log",
+      "volatility_cap": 2.0,
+      "deseasonalized": true,
+      "location": {
+        "latitude": 24.99,
+        "longitude": 121.3,
+        "name": "Taoyuan, Taiwan"
+      },
+      "data_source": "NASA POWER API",
+      "parameter": "ALLSKY_SFC_SW_DWN (GHI)",
+      "date_range": "2020-2024",
+      "_source": "nasa_api_or_cache"
+    },
+    "metadata": {
+      "scenario": "presentation_demo"
+    },
+    "computed": {
+      "premium_pct": 69.02600552563375,
+      "moneyness": 1.0,
+      "time_to_maturity_days": 365.0
+    },
+    "timestamp": "2025-12-07T23:06:53.170342"
+  }
+}

@@ -1,0 +1,38 @@
+{
+  "option_price": 0.03563674613277419,
+  "greeks": {
+    "delta": 0.8469203142365754,
+    "gamma": 64.57100074086762,
+    "vega": 0.00012170071214742326,
+    "theta": -5.000440096990938e-05,
+    "rho": 8.112390642806694e-05
+  },
+  "params": {
+    "S0": 0.051628,
+    "K": 0.051628,
+    "T": 1.0,
+    "r": 0.05,
+    "sigma": 2.0,
+    "volatility_method": "log",
+    "volatility_cap": 2.0,
+    "deseasonalized": true,
+    "location": {
+      "latitude": 24.99,
+      "longitude": 121.3,
+      "name": "Taoyuan, Taiwan"
+    },
+    "data_source": "NASA POWER API",
+    "parameter": "ALLSKY_SFC_SW_DWN (GHI)",
+    "date_range": "2020-2024",
+    "_source": "nasa_api_or_cache"
+  },
+  "metadata": {
+    "scenario": "presentation_demo"
+  },
+  "computed": {
+    "premium_pct": 69.02600552563375,
+    "moneyness": 1.0,
+    "time_to_maturity_days": 365.0
+  },
+  "timestamp": "2025-12-07T23:06:53.170342"
+}
