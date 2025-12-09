@@ -2,23 +2,25 @@
 SPK Derivatives: Energy Derivatives Pricing Framework
 ======================================================
 
-A quantitative framework for pricing solar energy derivatives using
-binomial trees, Monte-Carlo simulation, and risk-neutral valuation.
+A quantitative framework for pricing energy derivatives (solar, wind, hydro)
+using binomial trees, Monte-Carlo simulation, and risk-neutral valuation.
 
 Features:
 ---------
+- Multi-energy support: Solar, Wind, Hydroelectric
 - Binomial Option Pricing Model (BOPM)
 - Monte-Carlo simulation for derivative pricing
 - Greeks calculation (Delta, Vega, Theta, Rho, Gamma)
-- NASA POWER API integration for solar irradiance data
+- NASA POWER API integration for global data
+- Geographic presets: 10+ world locations optimized for each energy type
 - Professional workflow tools (validation, comparison, batch pricing)
-- Context translation (GHI → kWh → dollar values)
+- Context translation (raw data → kWh → dollar values)
 
 Author: SPK Derivatives Team
 Year: 2025
 """
 
-__version__ = "0.2.0"
+__version__ = "0.4.0"
 __author__ = "SPK Derivatives Team"
 
 # Import modules
@@ -27,6 +29,10 @@ from . import monte_carlo
 from . import sensitivities
 from . import data_loader
 from . import data_loader_nasa
+from . import data_loader_base  # Multi-energy support
+from . import data_loader_wind  # Multi-energy support
+from . import data_loader_hydro  # Multi-energy support
+from . import location_guide  # Geographic presets
 from . import live_data
 from . import context_translator
 from . import results_manager
@@ -43,6 +49,20 @@ from .data_loader import load_parameters
 from .binomial import BinomialTree
 from .monte_carlo import MonteCarloSimulator, price_energy_derivative_mc
 from .sensitivities import GreeksCalculator, compute_energy_derivatives_greeks as calculate_greeks
+
+# Import multi-energy data loaders
+from .data_loader_base import EnergyDataLoader  # Abstract base class
+from .data_loader_wind import WindDataLoader  # Wind energy support
+from .data_loader_hydro import HydroDataLoader  # Hydroelectric support
+
+# Import geographic location guide
+from .location_guide import (
+    get_location,
+    list_locations,
+    search_by_country,
+    get_best_location_for_energy,
+    format_location_table,
+)
 
 # Import context translator (sophistication layer)
 from .context_translator import (
@@ -71,6 +91,10 @@ __all__ = [
     'plots',
     'data_loader',
     'data_loader_nasa',
+    'data_loader_base',  # Multi-energy support
+    'data_loader_wind',  # Multi-energy support
+    'data_loader_hydro',  # Multi-energy support
+    'location_guide',  # Geographic presets
     'live_data',
     'context_translator',
     'results_manager',
@@ -84,6 +108,18 @@ __all__ = [
     'price_energy_derivative_mc',
     'GreeksCalculator',
     'calculate_greeks',
+
+    # Multi-energy data loaders
+    'EnergyDataLoader',  # Abstract base
+    'WindDataLoader',  # Wind support
+    'HydroDataLoader',  # Hydro support
+
+    # Geographic location guide
+    'get_location',
+    'list_locations',
+    'search_by_country',
+    'get_best_location_for_energy',
+    'format_location_table',
 
     # Context translation (sophistication layer)
     'SolarSystemContext',
