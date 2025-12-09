@@ -43,6 +43,20 @@ try:
 except ImportError:
     plots = None  # matplotlib not installed
 
+# Optional: analysis (sensitivity/stress/excel - openpyxl for excel)
+try:
+    from . import analysis
+    from .analysis import (
+        sensitivity_table,
+        stress_test_volatility,
+        stress_test_rates,
+        combined_stress_test,
+        export_to_excel,
+        run_full_analysis
+    )
+except ImportError:
+    analysis = None  # pandas required
+
 # Import commonly used functions for convenience
 from .data_loader_nasa import load_solar_parameters, fetch_nasa_data
 from .data_loader import load_parameters
@@ -135,4 +149,13 @@ __all__ = [
     'batch_price',
     'comparative_context',
     'break_even_analysis',
+
+    # Analysis utilities (sensitivity, stress test, excel)
+    'analysis',
+    'sensitivity_table',
+    'stress_test_volatility',
+    'stress_test_rates',
+    'combined_stress_test',
+    'export_to_excel',
+    'run_full_analysis',
 ]

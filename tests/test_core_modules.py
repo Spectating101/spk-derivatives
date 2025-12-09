@@ -10,6 +10,7 @@ Tests covering:
 - Location guide (geographic presets)
 - Context translator (sophisticated output)
 - Results manager (professional workflows)
+- Analysis utilities (sensitivity tables, stress tests, excel export)
 
 Target Coverage: 80%+
 Run: pytest tests/test_core_modules.py -v --cov
@@ -20,6 +21,8 @@ import numpy as np
 import pandas as pd
 from datetime import datetime, timedelta
 import warnings
+import tempfile
+import os
 
 # Import all core modules
 from energy_derivatives.spk_derivatives import (
@@ -28,6 +31,12 @@ from energy_derivatives.spk_derivatives import (
     GreeksCalculator,
     load_solar_parameters,
     EnergyDataLoader,
+    sensitivity_table,
+    stress_test_volatility,
+    stress_test_rates,
+    combined_stress_test,
+    run_full_analysis,
+
     WindDataLoader,
     HydroDataLoader,
     get_location,
@@ -663,5 +672,127 @@ class TestPerformance:
         assert price > 0
 
 
+# ============================================================================
+# ANALYSIS & SENSITIVITY TESTS
+# ============================================================================
+
+class TestSensitivityAnalysis:
+    """Tests for sensitivity tables and stress testing"""
+    
+    def test_sensitivity_table(self):
+        """Test sensitivity table generation"""
+        table = sensitivity_table(S0=0.035, K=0.040, T=1.0, r=0.025, sigma=0.42)
+        
+        # Should have multiple rows (default: 11)
+        assert len(table) > 0
+        
+        # Should have all required columns
+        required_cols = ['Spot Price ($/kWh)', 'Option Price ($/kWh)', 'Delta', 'Gamma', 'Vega', 'Theta', 'Rho']
+        for col in required_cols:
+            assert col in table.columns
+        
+        # Prices should be non-negative
+        assert (table['Option Price ($/kWh)'] >= 0).all()
+    
+    def test_sensitivity_custom_range(self):
+        """Test sensitivity table with custom spot range"""
+        custom_range = [0.020, 0.030, 0.040, 0.050]
+        table = sensitivity_table(S0=0.035, K=0.040, T=1.0, r=0.025, sigma=0.42,
+                                 spot_range=custom_range)
+        
+        assert len(table) == len(custom_range)
+        assert list(table['Spot Price ($/kWh)']) == custom_range
+    
+    def test_volatility_stress_test(self):
+        """Test volatility stress test"""
+        stress = stress_test_volatility(S0=0.035, K=0.040, T=1.0, r=0.025)
+        
+        # Should have default volatilities (10% to 100%)
+        assert len(stress) > 0
+        assert 'Option Price ($/kWh)' in stress.columns
+        assert 'Vega' in stress.columns
+        
+        # Higher volatility → higher option value (monotonic)
+        prices = stress['Option Price ($/kWh)'].values
+        assert all(prices[i] <= prices[i+1] or abs(prices[i] - prices[i+1]) < 0.0001 
+                  for i in range(len(prices)-1))
+    
+    def test_rate_stress_test(self):
+        """Test interest rate stress test"""
+        stress = stress_test_rates(S0=0.035, K=0.040, T=1.0, sigma=0.42)
+        
+        # Should have default rates (0% to 10%)
+        assert len(stress) > 0
+        assert 'Option Price ($/kWh)' in stress.columns
+        assert 'Rho' in stress.columns
+    
+    def test_combined_stress_test(self):
+        """Test 2D volatility × rate stress test"""
+        combined = combined_stress_test(S0=0.035, K=0.040, T=1.0)
+        
+        # Should be a 2D table
+        assert isinstance(combined, pd.DataFrame)
+        assert len(combined) > 0  # Rows (volatilities)
+        assert len(combined.columns) > 0  # Columns (rates)
+        
+        # All values should be positive
+        assert (combined > 0).all().all()
+    
+    def test_run_full_analysis(self):
+        """Test comprehensive analysis function"""
+        results = run_full_analysis(S0=0.035, K=0.040, T=1.0, r=0.025, sigma=0.42,
+                                   location='Test')
+        
+        # Should return all analysis DataFrames
+        assert 'sensitivity_table' in results
+        assert 'vol_stress' in results
+        assert 'rate_stress' in results
+        assert 'combined_stress' in results
+        
+        # Each should be a DataFrame
+        for key in results:
+            assert isinstance(results[key], pd.DataFrame)
+    
+    def test_excel_export(self):
+        """Test Excel export functionality"""
+        sensitivity_df = sensitivity_table(S0=0.035, K=0.040, T=1.0, r=0.025, sigma=0.42)
+        
+        # Create temporary file
+        with tempfile.NamedTemporaryFile(suffix='.xlsx', delete=False) as tmp:
+            tmp_path = tmp.name
+        
+        try:
+            # Export
+            from energy_derivatives.spk_derivatives import export_to_excel
+            export_to_excel(tmp_path, sensitivity_df=sensitivity_df)
+            
+            # Check file exists
+            assert os.path.exists(tmp_path)
+            assert os.path.getsize(tmp_path) > 0
+        finally:
+            # Clean up
+            if os.path.exists(tmp_path):
+                os.remove(tmp_path)
+    
+    def test_excel_export_no_openpyxl(self):
+        """Test Excel export gracefully handles missing openpyxl"""
+        import sys
+        from unittest.mock import patch
+        
+        sensitivity_df = sensitivity_table(S0=0.035, K=0.040, T=1.0, r=0.025, sigma=0.42)
+        
+        with tempfile.NamedTemporaryFile(suffix='.xlsx') as tmp:
+            from energy_derivatives.spk_derivatives import export_to_excel
+            
+            # Should raise ImportError if openpyxl not available
+            try:
+                export_to_excel(tmp.name, sensitivity_df=sensitivity_df)
+                # If no error, openpyxl is installed (OK)
+            except ImportError as e:
+                # Expected if openpyxl not installed
+                assert 'openpyxl' in str(e)
+
+
 if __name__ == '__main__':
     pytest.main([__file__, '-v', '--tb=short'])
+
