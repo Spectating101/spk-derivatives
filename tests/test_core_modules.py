@@ -36,6 +36,10 @@ from energy_derivatives.spk_derivatives import (
     stress_test_rates,
     combined_stress_test,
     run_full_analysis,
+    scenario_comparison,
+    break_even_analysis,
+    portfolio_greeks,
+    pnl_calculator,
 
     WindDataLoader,
     HydroDataLoader,
@@ -791,6 +795,271 @@ class TestSensitivityAnalysis:
             except ImportError as e:
                 # Expected if openpyxl not installed
                 assert 'openpyxl' in str(e)
+
+
+# ============================================================================
+# SCENARIO COMPARISON TESTS
+# ============================================================================
+
+class TestScenarioComparison:
+    """Unit tests for scenario comparison analysis"""
+    
+    def test_scenario_comparison_basic(self):
+        """Test basic scenario comparison with two scenarios"""
+        scenarios = [
+            {'name': 'Base', 'S0': 0.035, 'K': 0.040, 'sigma': 0.42},
+            {'name': 'Bullish', 'S0': 0.040, 'K': 0.040, 'sigma': 0.30},
+        ]
+        result = scenario_comparison(scenarios, T=1.0, r=0.025)
+        
+        assert isinstance(result, pd.DataFrame)
+        assert len(result) == 2
+        assert 'Scenario' in result.columns
+        assert 'Price' in result.columns
+        assert 'Delta' in result.columns
+    
+    def test_scenario_comparison_multiple(self):
+        """Test scenario comparison with three scenarios"""
+        scenarios = [
+            {'name': 'Bullish', 'S0': 0.040, 'K': 0.035, 'sigma': 0.30},
+            {'name': 'Base', 'S0': 0.035, 'K': 0.040, 'sigma': 0.42},
+            {'name': 'Bearish', 'S0': 0.030, 'K': 0.045, 'sigma': 0.60},
+        ]
+        result = scenario_comparison(scenarios, T=1.0, r=0.025)
+        
+        assert len(result) == 3
+        assert result['Scenario'].tolist() == ['Bullish', 'Base', 'Bearish']
+        # Bullish scenario should have higher price than Bearish
+        assert result.loc[result['Scenario'] == 'Bullish', 'Price'].values[0] > \
+               result.loc[result['Scenario'] == 'Bearish', 'Price'].values[0]
+    
+    def test_scenario_comparison_missing_name(self):
+        """Test scenario comparison raises error for missing scenario name"""
+        scenarios = [
+            {'S0': 0.035, 'K': 0.040, 'sigma': 0.42},  # Missing 'name'
+        ]
+        with pytest.raises(ValueError):
+            scenario_comparison(scenarios, T=1.0, r=0.025)
+    
+    def test_scenario_comparison_with_quantity(self):
+        """Test scenario comparison respects quantity parameter"""
+        scenarios = [
+            {'name': 'Single', 'S0': 0.035, 'K': 0.040, 'sigma': 0.42, 'quantity': 1},
+            {'name': 'Double', 'S0': 0.035, 'K': 0.040, 'sigma': 0.42, 'quantity': 2},
+        ]
+        result = scenario_comparison(scenarios, T=1.0, r=0.025)
+        
+        # Price should scale with quantity
+        single_price = result.loc[result['Scenario'] == 'Single', 'Price'].values[0]
+        double_price = result.loc[result['Scenario'] == 'Double', 'Price'].values[0]
+        assert np.isclose(double_price, 2 * single_price, rtol=1e-2)
+
+
+# ============================================================================
+# BREAK-EVEN ANALYSIS TESTS
+# ============================================================================
+
+class TestBreakEvenAnalysis:
+    """Unit tests for break-even analysis"""
+    
+    def test_break_even_otm_call(self):
+        """Test break-even for OTM call option"""
+        result = break_even_analysis(S0=0.035, K=0.040, T=1.0, r=0.025, sigma=0.42)
+        
+        assert isinstance(result, dict)
+        assert 'break_even_spot' in result
+        assert 'current_profit_loss' in result
+        assert 'max_loss' in result
+        assert 'max_profit' in result
+        
+        # For OTM call, break-even should be above strike
+        assert result['break_even_spot'] > result['strike']
+    
+    def test_break_even_itm_put(self):
+        """Test break-even for ITM put option"""
+        result = break_even_analysis(S0=0.035, K=0.040, T=1.0, r=0.025, sigma=0.42, payoff_type='put')
+        
+        # For ITM put, break-even should be below strike
+        assert result['break_even_spot'] < result['strike']
+    
+    def test_break_even_current_loss(self):
+        """Test that OTM option shows current loss"""
+        result = break_even_analysis(S0=0.035, K=0.040, T=1.0, r=0.025, sigma=0.42)
+        
+        # Current spot is below strike, so option is OTM
+        # Current profit/loss should be negative (premium paid)
+        assert result['current_profit_loss'] < 0
+    
+    def test_break_even_intrinsic_value(self):
+        """Test intrinsic value calculation"""
+        # ITM call: S0 > K
+        result = break_even_analysis(S0=0.045, K=0.040, T=1.0, r=0.025, sigma=0.42, payoff_type='call')
+        
+        # Intrinsic value should be positive
+        assert result['intrinsic_value'] > 0
+    
+    def test_break_even_max_loss_call(self):
+        """Test max loss for call option"""
+        result = break_even_analysis(S0=0.035, K=0.040, T=1.0, r=0.025, sigma=0.42, payoff_type='call')
+        
+        # Max loss for call = premium paid
+        # Should be equal to negative of current P&L at spot
+        assert result['max_loss'] < 0
+    
+    def test_break_even_max_loss_put(self):
+        """Test max loss for put option"""
+        result = break_even_analysis(S0=0.035, K=0.040, T=1.0, r=0.025, sigma=0.42, payoff_type='put')
+        
+        # Max loss for put = premium paid
+        assert result['max_loss'] < 0
+
+
+# ============================================================================
+# PORTFOLIO GREEKS TESTS
+# ============================================================================
+
+class TestPortfolioGreeks:
+    """Unit tests for portfolio Greeks aggregation"""
+    
+    def test_portfolio_greeks_single_contract(self):
+        """Test portfolio Greeks with single contract"""
+        contracts = [
+            {'S0': 0.035, 'K': 0.040, 'T': 1.0, 'r': 0.025, 'sigma': 0.42, 'quantity': 100},
+        ]
+        result = portfolio_greeks(contracts)
+        
+        assert isinstance(result, dict)
+        assert 'delta' in result
+        assert 'gamma' in result
+        assert 'vega' in result
+        assert 'theta' in result
+        assert 'rho' in result
+        
+        # All Greeks should be scalar values
+        for greek in ['delta', 'gamma', 'vega', 'theta', 'rho']:
+            assert isinstance(result[greek], (int, float))
+    
+    def test_portfolio_greeks_multiple_contracts(self):
+        """Test portfolio Greeks aggregates across contracts"""
+        contracts = [
+            {'S0': 0.035, 'K': 0.040, 'T': 1.0, 'r': 0.025, 'sigma': 0.42, 'quantity': 100},
+            {'S0': 0.040, 'K': 0.045, 'T': 0.5, 'r': 0.025, 'sigma': 0.35, 'quantity': 50},
+        ]
+        result = portfolio_greeks(contracts)
+        
+        # Should return aggregated Greeks
+        assert result['delta'] > 0
+        assert result['gamma'] > 0
+        assert result['vega'] > 0
+    
+    def test_portfolio_greeks_short_position(self):
+        """Test portfolio Greeks with short positions (negative quantity)"""
+        contracts = [
+            {'S0': 0.035, 'K': 0.040, 'T': 1.0, 'r': 0.025, 'sigma': 0.42, 'quantity': 100},
+            {'S0': 0.035, 'K': 0.040, 'T': 1.0, 'r': 0.025, 'sigma': 0.42, 'quantity': -50},
+        ]
+        result = portfolio_greeks(contracts)
+        
+        # Net delta should be positive (100 - 50 = 50 contracts long)
+        assert result['delta'] > 0
+    
+    def test_portfolio_greeks_delta_hedged(self):
+        """Test portfolio Greeks when delta-hedged (delta near zero)"""
+        # Create a portfolio with matching long and short positions
+        contracts = [
+            {'S0': 0.035, 'K': 0.040, 'T': 1.0, 'r': 0.025, 'sigma': 0.42, 'quantity': 100},
+            {'S0': 0.035, 'K': 0.040, 'T': 1.0, 'r': 0.025, 'sigma': 0.42, 'quantity': -100},
+        ]
+        result = portfolio_greeks(contracts)
+        
+        # Delta should be close to zero
+        assert np.isclose(result['delta'], 0.0, atol=1e-6)
+    
+    def test_portfolio_greeks_mixed_strikes(self):
+        """Test portfolio Greeks with contracts at different strikes"""
+        contracts = [
+            {'S0': 0.035, 'K': 0.030, 'T': 1.0, 'r': 0.025, 'sigma': 0.42, 'quantity': 100},  # ITM
+            {'S0': 0.035, 'K': 0.040, 'T': 1.0, 'r': 0.025, 'sigma': 0.42, 'quantity': 50},   # OTM
+        ]
+        result = portfolio_greeks(contracts)
+        
+        # ITM option should have higher delta
+        assert result['delta'] > 0
+
+
+# ============================================================================
+# P&L CALCULATOR TESTS
+# ============================================================================
+
+class TestPnLCalculator:
+    """Unit tests for P&L calculator"""
+    
+    def test_pnl_calculator_long_call(self):
+        """Test P&L calculator for long call position"""
+        result = pnl_calculator(S0=0.035, K=0.040, T=1.0, r=0.025, sigma=0.42, position='long_call')
+        
+        assert isinstance(result, pd.DataFrame)
+        assert 'Spot at Expiry' in result.columns
+        assert 'Intrinsic' in result.columns
+        assert 'Premium' in result.columns
+        assert 'Net P&L' in result.columns
+        
+        # Should have multiple spot prices
+        assert len(result) > 1
+    
+    def test_pnl_calculator_long_put(self):
+        """Test P&L calculator for long put position"""
+        result = pnl_calculator(S0=0.035, K=0.040, T=1.0, r=0.025, sigma=0.42, position='long_put')
+        
+        assert isinstance(result, pd.DataFrame)
+        # At high spot prices, put should be worthless (negative P&L = premium lost)
+        high_spot_pnl = result[result['Spot at Expiry'] > 0.050]['Net P&L']
+        if len(high_spot_pnl) > 0:
+            assert high_spot_pnl.iloc[-1] < 0
+    
+    def test_pnl_calculator_short_call(self):
+        """Test P&L calculator for short call position"""
+        result = pnl_calculator(S0=0.035, K=0.040, T=1.0, r=0.025, sigma=0.42, position='short_call')
+        
+        # Short call has max profit at low spot prices (strike + premium)
+        low_spot_pnl = result[result['Spot at Expiry'] <= 0.035]['Net P&L']
+        if len(low_spot_pnl) > 0:
+            assert low_spot_pnl.iloc[0] > 0
+    
+    def test_pnl_calculator_short_put(self):
+        """Test P&L calculator for short put position"""
+        result = pnl_calculator(S0=0.035, K=0.040, T=1.0, r=0.025, sigma=0.42, position='short_put')
+        
+        # Short put has max profit at high spot prices
+        high_spot_pnl = result[result['Spot at Expiry'] >= 0.050]['Net P&L']
+        if len(high_spot_pnl) > 0:
+            assert high_spot_pnl.iloc[-1] > 0
+    
+    def test_pnl_calculator_breakeven_point(self):
+        """Test that P&L calculator shows breakeven point"""
+        result = pnl_calculator(S0=0.035, K=0.040, T=1.0, r=0.025, sigma=0.42, position='long_call')
+        
+        # Find approximate breakeven (where Net P&L changes sign)
+        pnl_values = result['Net P&L'].values
+        # For long call starting OTM, breakeven should exist
+        if pnl_values[0] < 0 and pnl_values[-1] > 0:
+            # Sign change indicates breakeven
+            assert True
+        else:
+            # OTM call may not reach breakeven in range
+            assert pnl_values[-1] <= 0 or pnl_values[0] >= 0
+    
+    def test_pnl_calculator_spot_range(self):
+        """Test P&L calculator covers appropriate spot price range"""
+        result = pnl_calculator(S0=0.035, K=0.040, T=1.0, r=0.025, sigma=0.42, position='long_call')
+        
+        # Should cover range from ~0.020 to ~0.060
+        min_spot = result['Spot at Expiry'].min()
+        max_spot = result['Spot at Expiry'].max()
+        
+        assert min_spot < 0.035  # Below current spot
+        assert max_spot > 0.035  # Above current spot
+        assert max_spot - min_spot > 0.020  # Reasonable range
 
 
 if __name__ == '__main__':

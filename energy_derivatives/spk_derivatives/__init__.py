@@ -52,7 +52,11 @@ try:
         stress_test_rates,
         combined_stress_test,
         export_to_excel,
-        run_full_analysis
+        run_full_analysis,
+        scenario_comparison,
+        break_even_analysis,
+        portfolio_greeks,
+        pnl_calculator,
     )
 except ImportError:
     analysis = None  # pandas required
@@ -150,7 +154,7 @@ __all__ = [
     'comparative_context',
     'break_even_analysis',
 
-    # Analysis utilities (sensitivity, stress test, excel)
+    # Analysis utilities (sensitivity, stress test, excel, comparison, p&l)
     'analysis',
     'sensitivity_table',
     'stress_test_volatility',
@@ -158,4 +162,8 @@ __all__ = [
     'combined_stress_test',
     'export_to_excel',
     'run_full_analysis',
+    'scenario_comparison',
+    'break_even_analysis',
+    'portfolio_greeks',
+    'pnl_calculator',
 ]

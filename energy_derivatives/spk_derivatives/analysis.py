@@ -443,3 +443,302 @@ def run_full_analysis(S0: float, K: float, T: float, r: float, sigma: float,
         'rate_stress': rate_stress_df,
         'combined_stress': combined_stress_df,
     }
+
+
+# ============================================================================
+# ADDITIONAL QUICK WINS
+# ============================================================================
+
+def scenario_comparison(scenarios: List[Dict[str, float]], T: float = 1.0, 
+                       r: float = 0.025, method: str = 'binomial', 
+                       N: int = 100) -> pd.DataFrame:
+    """
+    Compare pricing across multiple scenarios side-by-side.
+    
+    Parameters
+    ----------
+    scenarios : List[Dict]
+        List of scenario dicts: {'name': str, 'S0': float, 'K': float, 'sigma': float}
+    T : float
+        Time to maturity (default: 1.0 year)
+    r : float
+        Risk-free rate (default: 2.5%)
+    method : str
+        'binomial' or 'monte_carlo'
+    N : int
+        Binomial steps (default: 100)
+    
+    Returns
+    -------
+    pd.DataFrame
+        Columns: Scenario Name, Spot, Strike, Vol, Price, Delta, Vega, Gamma
+    
+    Example
+    -------
+    >>> scenarios = [
+    ...     {'name': 'Bullish', 'S0': 0.040, 'K': 0.035, 'sigma': 0.30},
+    ...     {'name': 'Base', 'S0': 0.035, 'K': 0.040, 'sigma': 0.42},
+    ...     {'name': 'Bearish', 'S0': 0.030, 'K': 0.045, 'sigma': 0.60},
+    ... ]
+    >>> comp = scenario_comparison(scenarios, T=1.0, r=0.025)
+    >>> print(comp)
+    """
+    results = []
+    
+    for scenario in scenarios:
+        name = scenario.get('name', 'Unnamed')
+        S0 = scenario['S0']
+        K = scenario['K']
+        sigma = scenario['sigma']
+        
+        # Price
+        if method == 'binomial':
+            tree = BinomialTree(S0=S0, K=K, T=T, r=r, sigma=sigma, N=N, payoff_type='call')
+            price = tree.price()
+        else:
+            mc = MonteCarloSimulator(S0=S0, K=K, T=T, r=r, sigma=sigma, payoff_type='call')
+            price = mc.price()
+        
+        # Greeks
+        greeks = GreeksCalculator(S0=S0, K=K, T=T, r=r, sigma=sigma, pricing_method=method)
+        delta = greeks.delta()
+        vega = greeks.vega()
+        gamma = greeks.gamma()
+        
+        results.append({
+            'Scenario': name,
+            'Spot ($/kWh)': S0,
+            'Strike ($/kWh)': K,
+            'Volatility': f"{sigma:.0%}",
+            'Price ($/kWh)': price,
+            'Delta': delta,
+            'Vega': vega,
+            'Gamma': gamma,
+        })
+    
+    df = pd.DataFrame(results)
+    return df
+
+
+def break_even_analysis(S0: float, K: float, T: float, r: float, sigma: float,
+                        option_price: Optional[float] = None,
+                        method: str = 'binomial', N: int = 100) -> Dict:
+    """
+    Calculate break-even spot price for option buyer.
+    
+    Parameters
+    ----------
+    S0 : float
+        Current spot price
+    K : float
+        Strike price
+    T : float
+        Time to maturity
+    r : float
+        Risk-free rate
+    sigma : float
+        Volatility
+    option_price : float, optional
+        Premium paid (default: computed)
+    method : str
+        'binomial' or 'monte_carlo'
+    N : int
+        Binomial steps
+    
+    Returns
+    -------
+    Dict
+        Contains: break_even_spot, profit_at_current, max_loss, intrinsic_value
+    
+    Example
+    -------
+    >>> be = break_even_analysis(S0=0.035, K=0.040, T=1.0, r=0.025, sigma=0.42)
+    >>> print(f"Break-even: ${be['break_even_spot']:.6f}/kWh")
+    >>> print(f"Max loss: ${be['max_loss']:.6f}/kWh")
+    """
+    # Compute option price if not provided
+    if option_price is None:
+        if method == 'binomial':
+            tree = BinomialTree(S0=S0, K=K, T=T, r=r, sigma=sigma, N=N, payoff_type='call')
+            option_price = tree.price()
+        else:
+            mc = MonteCarloSimulator(S0=S0, K=K, T=T, r=r, sigma=sigma, payoff_type='call')
+            option_price = mc.price()
+    
+    # Break-even: K + premium
+    break_even = K + option_price
+    
+    # Current P&L
+    intrinsic = max(S0 - K, 0)
+    current_pnl = intrinsic - option_price
+    
+    # Max loss = premium paid (if S0 never rises above K)
+    max_loss = -option_price
+    
+    # Max profit = unlimited (call)
+    max_profit = float('inf')
+    
+    return {
+        'break_even_spot': break_even,
+        'current_spot': S0,
+        'strike': K,
+        'option_premium': option_price,
+        'current_profit_loss': current_pnl,
+        'intrinsic_value': intrinsic,
+        'max_loss': max_loss,
+        'max_profit': max_profit,
+        'profit_margin': (current_pnl / option_price * 100) if option_price > 0 else 0,
+    }
+
+
+def portfolio_greeks(contracts: List[Dict[str, float]], 
+                    method: str = 'binomial', N: int = 100) -> Dict[str, float]:
+    """
+    Aggregate Greeks across a portfolio of contracts.
+    
+    Parameters
+    ----------
+    contracts : List[Dict]
+        List of contract dicts:
+        {'S0': float, 'K': float, 'T': float, 'r': float, 'sigma': float, 'quantity': int}
+    method : str
+        'binomial' or 'monte_carlo'
+    N : int
+        Binomial steps
+    
+    Returns
+    -------
+    Dict
+        Portfolio-level Greeks: delta, gamma, vega, theta, rho
+    
+    Example
+    -------
+    >>> contracts = [
+    ...     {'S0': 0.035, 'K': 0.040, 'T': 1.0, 'r': 0.025, 'sigma': 0.42, 'quantity': 100},
+    ...     {'S0': 0.040, 'K': 0.045, 'T': 0.5, 'r': 0.025, 'sigma': 0.35, 'quantity': 50},
+    ... ]
+    >>> port_greeks = portfolio_greeks(contracts)
+    >>> print(f"Portfolio Delta: {port_greeks['delta']:.2f}")
+    >>> print(f"Portfolio Gamma: {port_greeks['gamma']:.2f}")
+    """
+    portfolio = {
+        'delta': 0.0,
+        'gamma': 0.0,
+        'vega': 0.0,
+        'theta': 0.0,
+        'rho': 0.0,
+    }
+    
+    for contract in contracts:
+        S0 = contract['S0']
+        K = contract['K']
+        T = contract['T']
+        r = contract['r']
+        sigma = contract['sigma']
+        qty = contract.get('quantity', 1)
+        
+        greeks = GreeksCalculator(S0=S0, K=K, T=T, r=r, sigma=sigma, pricing_method=method)
+        
+        portfolio['delta'] += greeks.delta() * qty
+        portfolio['gamma'] += greeks.gamma() * qty
+        portfolio['vega'] += greeks.vega() * qty
+        portfolio['theta'] += greeks.theta() * qty
+        portfolio['rho'] += greeks.rho() * qty
+    
+    return portfolio
+
+
+def pnl_calculator(S0: float, K: float, T: float, r: float, sigma: float,
+                   spot_range: Optional[List[float]] = None,
+                   option_price: Optional[float] = None,
+                   position: str = 'long_call',
+                   method: str = 'binomial', N: int = 100) -> pd.DataFrame:
+    """
+    Calculate profit/loss at different spot prices at expiry.
+    
+    Parameters
+    ----------
+    S0 : float
+        Current spot price
+    K : float
+        Strike price
+    T : float
+        Time to maturity (for pricing, not used for expiry P&L)
+    r : float
+        Risk-free rate
+    sigma : float
+        Volatility (for pricing current option value)
+    spot_range : List[float], optional
+        Range of spot prices at expiry (default: -30% to +30%)
+    option_price : float, optional
+        Premium paid (default: computed)
+    position : str
+        'long_call', 'short_call', 'long_put', 'short_put'
+    method : str
+        'binomial' or 'monte_carlo'
+    N : int
+        Binomial steps
+    
+    Returns
+    -------
+    pd.DataFrame
+        Columns: Spot at Expiry, Intrinsic Value, Premium Cost, Net P&L, Profit/Loss
+    
+    Example
+    -------
+    >>> pnl = pnl_calculator(S0=0.035, K=0.040, T=1.0, r=0.025, sigma=0.42,
+    ...                      position='long_call')
+    >>> print(pnl[['Spot at Expiry', 'Net P&L', 'Profit/Loss']])
+    """
+    if spot_range is None:
+        spot_range = np.linspace(S0 * 0.7, S0 * 1.3, 21)
+    else:
+        spot_range = np.array(spot_range)
+    
+    # Compute option price if not provided
+    if option_price is None:
+        if method == 'binomial':
+            tree = BinomialTree(S0=S0, K=K, T=T, r=r, sigma=sigma, N=N, payoff_type='call')
+            option_price = tree.price()
+        else:
+            mc = MonteCarloSimulator(S0=S0, K=K, T=T, r=r, sigma=sigma, payoff_type='call')
+            option_price = mc.price()
+    
+    results = []
+    
+    for spot_t in spot_range:
+        # Intrinsic values at expiry
+        call_intrinsic = max(spot_t - K, 0)
+        put_intrinsic = max(K - spot_t, 0)
+        
+        # P&L based on position
+        if position == 'long_call':
+            pnl = call_intrinsic - option_price
+        elif position == 'short_call':
+            pnl = option_price - call_intrinsic
+        elif position == 'long_put':
+            pnl = put_intrinsic - option_price
+        elif position == 'short_put':
+            pnl = option_price - put_intrinsic
+        else:
+            raise ValueError(f"Unknown position: {position}")
+        
+        status = "Profit" if pnl > 0 else ("Loss" if pnl < 0 else "Breakeven")
+        
+        results.append({
+            'Spot at Expiry ($/kWh)': spot_t,
+            'Call Intrinsic ($/kWh)': call_intrinsic,
+            'Put Intrinsic ($/kWh)': put_intrinsic,
+            'Premium ($/kWh)': option_price,
+            'Net P&L ($/kWh)': pnl,
+            'Profit/Loss': status,
+        })
+    
+    df = pd.DataFrame(results)
+    # Simplify columns for display
+    if position.startswith('long_call') or position.startswith('short_call'):
+        df = df[['Spot at Expiry ($/kWh)', 'Call Intrinsic ($/kWh)', 'Premium ($/kWh)', 'Net P&L ($/kWh)', 'Profit/Loss']]
+    else:
+        df = df[['Spot at Expiry ($/kWh)', 'Put Intrinsic ($/kWh)', 'Premium ($/kWh)', 'Net P&L ($/kWh)', 'Profit/Loss']]
+    
+    return df
