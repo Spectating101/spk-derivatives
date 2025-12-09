@@ -224,25 +224,34 @@ contract SolarPunkCoin is
 
         int256 integral = (integralError * int256(integralGain)) / 1e18;
 
-        // Total control signal
+        // Total control signal (scaled down to avoid overflow)
         int256 controlSignal = proportional + integral;
 
         // If price too high (positive delta), burn supply to push price down
         if (controlSignal > 0) {
             uint256 burnAmount = uint256(controlSignal);
-            if (burnAmount > 0 && totalSupply() >= burnAmount) {
-                _burn(address(this), burnAmount);
-                emit PegAdjusted(currentPrice, false); // false = burn
-                adjusted = true;
+            // Only burn if we have the supply and amount is meaningful
+            uint256 availableToBurn = totalSupply() / 100; // Max 1% per adjustment
+            if (burnAmount > 0 && availableToBurn > 0) {
+                uint256 actualBurn = burnAmount > availableToBurn ? availableToBurn : burnAmount;
+                if (balanceOf(address(this)) >= actualBurn) {
+                    _burn(address(this), actualBurn);
+                    emit PegAdjusted(currentPrice, false); // false = burn
+                    adjusted = true;
+                }
             }
         }
         // If price too low (negative delta), mint supply to push price up
         else if (controlSignal < 0) {
             uint256 mintAmount = uint256(-controlSignal);
-            if (totalSupply() + mintAmount <= supplyCap) {
-                _mint(address(this), mintAmount);
-                emit PegAdjusted(currentPrice, true); // true = mint
-                adjusted = true;
+            uint256 maxCanMint = (supplyCap - totalSupply()) / 100; // Max 1% growth per adjustment
+            if (mintAmount > 0 && maxCanMint > 0) {
+                uint256 actualMint = mintAmount > maxCanMint ? maxCanMint : mintAmount;
+                if (totalSupply() + actualMint <= supplyCap) {
+                    _mint(address(this), actualMint);
+                    emit PegAdjusted(currentPrice, true); // true = mint
+                    adjusted = true;
+                }
             }
         }
 
