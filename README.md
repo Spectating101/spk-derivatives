@@ -9,25 +9,89 @@ Academic research on renewable energy as a fundamental anchor for cryptocurrency
 - **Final-Iteration.md** – SolarPunkCoin concept: Renewable-energy-backed stablecoin addressing 10 cryptocurrency failure modes
 - **Empirical-Milestone.md** – Spring 2025 research proposal for Yuan Ze University
 
-## 🔧 Energy Derivatives Framework
+## 🔧 Energy Derivatives Framework (v0.3.0)
 
-Production-ready Python package for pricing European-style options on renewable energy-backed assets.
+**NEW:** Multi-energy support! 🌞💨💧
+
+Production-ready Python package for pricing European-style options on **renewable energy-backed assets** (solar, wind, hydroelectric).
+
+**Multi-Energy Support (v0.3.0):**
+- ☀️ **Solar** (GHI data) - Existing, proven implementation
+- 💨 **Wind** (Speed at hub height) - NEW with turbine power curve
+- 💧 **Hydro** (Precipitation) - NEW with hydrological flow model
+- All three use identical pricing engines (Binomial Tree, Monte Carlo, Greeks)
 
 **Quick start:**
 ```bash
 cd energy_derivatives
 pip install -r requirements.txt
 jupyter notebook notebooks/main.ipynb
+
+# Or with multi-energy:
+from energy_derivatives.spk_derivatives import (
+    SolarDataLoader, WindDataLoader, HydroDataLoader,
+    BinomialTree, list_locations, get_location
+)
+
+# Load any renewable energy type using geographic presets
+wind = WindDataLoader(location_name='Aalborg')  # Denmark - excellent wind
+hydro = HydroDataLoader(location_name='Nepal')  # Himalayas - peak monsoon
+solar = SolarDataLoader(location_name='Atacama')  # Chile - world's best
+
+params = wind.load_parameters()
+bt = BinomialTree(**params, N=100)
+call_price = bt.price_call_option()
 ```
 
+### 🌍 Geographic Presets (NEW v0.3.0)
+
+**10 curated locations** spanning 6 continents, each optimized for renewable energy derivatives:
+
+**Solar-Optimized:** Phoenix (☀️ 10/10), Atacama (☀️ 10/10), Cairo (☀️ 10/10)  
+**Wind-Optimized:** Aalborg (💨 10/10), Kansas City (💨 9/10), Edinburgh (💨 9/10), Patagonia (💨 10/10)  
+**Hydro-Optimized:** Nepal (💧 10/10), Alps (💧 10/10), Amazon Basin (💧 10/10)  
+**Multi-Energy:** Kenya Highlands (☀️💨💧 balanced), Tasmania (☀️💨💧 balanced)  
+
+```python
+# List all available locations
+from spk_derivatives import list_locations, format_location_table
+
+print(format_location_table())
+# =====================================================================
+# Location             Country              Solar    Wind     Hydro
+# =====================================================================
+# Phoenix              United States        10       6        2
+# Atacama              Chile                10       8        1
+# Aalborg              Denmark              4        10       2
+# Nepal                Nepal                6        5        10
+# Alps                 Switzerland          5        4        10
+# ...
+
+# Find best location for each energy type
+from spk_derivatives import get_best_location_for_energy
+best_solar = get_best_location_for_energy('solar')   # 'Atacama'
+best_wind = get_best_location_for_energy('wind')     # 'Patagonia'
+best_hydro = get_best_location_for_energy('hydro')   # 'Nepal'
+
+# Use presets instead of manual coordinates
+solar = SolarDataLoader(location_name='Phoenix')
+# Automatically uses: lat=33.45, lon=-112.07, tilt=25°, albedo=0.25
+```
+
+See [GEOGRAPHIC_GUIDE.md](GEOGRAPHIC_GUIDE.md) for detailed location profiles, climate zones, seasonal patterns, and multi-energy hedging strategies.
+
 **Core modules:**
+- `data_loader_base.py` – Abstract base class (NEW v0.3.0)
+- `data_loader_wind.py` – Wind speed → power pricing (NEW v0.3.0)
+- `data_loader_hydro.py` – Precipitation → power pricing (NEW v0.3.0)
 - `binomial.py` – Binomial tree pricing with convergence analysis
 - `monte_carlo.py` – Monte Carlo simulation with confidence intervals
 - `sensitivities.py` – Greeks computation (delta, gamma, vega, theta, rho)
 - `plots.py` – Publication-quality visualizations
-- `data_loader.py` – Energy data calibration
 
-**Details:** ~2,300 lines of production code, full documentation, Jupyter notebook with 10-section walkthrough.
+**Details:** ~3,500+ lines of production code, full documentation, multi-energy examples.
+
+**See:** [MULTI_ENERGY_SUPPORT.md](MULTI_ENERGY_SUPPORT.md) for complete multi-energy guide
 
 ## �� Empirical Data & Analysis
 

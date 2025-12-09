@@ -22,6 +22,7 @@ import numpy as np
 import warnings
 from typing import Dict, Tuple, Optional
 from pathlib import Path
+import time
 
 # --- CONFIGURATION ---
 # Coordinates for Taoyuan, Taiwan
@@ -29,6 +30,8 @@ LAT = 24.99
 LON = 121.30
 START_YEAR = 2020
 END_YEAR = 2024
+MAX_RETRIES = 3
+RETRY_BACKOFF = 1.5  # seconds
 
 
 def fetch_nasa_data(
@@ -65,10 +68,15 @@ def fetch_nasa_data(
     cache_file = cache_dir / f'nasa_ghi_{lat}_{lon}_{start}_{end}.csv'
 
     if cache and cache_file.exists():
-        print(f"📁 Loading cached NASA data from {cache_file}")
-        df = pd.read_csv(cache_file, parse_dates=['Date'], index_col='Date')
-        print(f"✅ Loaded {len(df)} days of cached data")
-        return df
+        try:
+            print(f"📁 Loading cached NASA data from {cache_file}")
+            df = pd.read_csv(cache_file, parse_dates=['Date'], index_col='Date')
+            if df.empty or 'GHI' not in df.columns:
+                raise ValueError("Cached file is empty or missing GHI column")
+            print(f"✅ Loaded {len(df)} days of cached data")
+            return df
+        except Exception as exc:  # noqa: BLE001
+            warnings.warn(f"Cached NASA data unusable ({exc}); refetching from API")
 
     # Fetch from NASA API
     base_url = "https://power.larc.nasa.gov/api/temporal/daily/point"
@@ -85,17 +93,38 @@ def fetch_nasa_data(
     print(f"📡 Connecting to NASA Satellite Database for Taoyuan ({lat}, {lon})...")
     print(f"   Date Range: {start}-01-01 to {end}-12-31")
 
-    try:
-        response = requests.get(base_url, params=params, timeout=30)
-        response.raise_for_status()
-    except requests.exceptions.RequestException as e:
-        raise ConnectionError(f"NASA API Failed: {e}")
+    response = None
+    for attempt in range(1, MAX_RETRIES + 1):
+        try:
+            response = requests.get(base_url, params=params, timeout=30)
+            response.raise_for_status()
+            break
+        except requests.exceptions.RequestException as e:
+            if attempt == MAX_RETRIES:
+                raise ConnectionError(f"NASA API Failed after {attempt} attempts: {e}")
+            sleep_for = RETRY_BACKOFF * attempt
+            warnings.warn(f"NASA API request failed (attempt {attempt}/{MAX_RETRIES}): {e}. Retrying in {sleep_for:.1f}s")
+            time.sleep(sleep_for)
 
-    data = response.json()
+    if response is None:
+        raise ConnectionError("NASA API response is None after retries")
+
+    try:
+        data = response.json()
+    except ValueError as e:
+        raise ValueError(f"Failed to parse NASA API JSON response: {e}")
 
     # Parse JSON into DataFrame
     try:
-        solar_dict = data['properties']['parameter']['ALLSKY_SFC_SW_DWN']
+        properties = data['properties']
+        if not isinstance(properties, dict):
+            raise ValueError("Malformed response: 'properties' missing or not a dict")
+        parameter = properties.get('parameter', {})
+        if not isinstance(parameter, dict) or 'ALLSKY_SFC_SW_DWN' not in parameter:
+            raise ValueError("Malformed response: ALLSKY_SFC_SW_DWN not present")
+        solar_dict = parameter['ALLSKY_SFC_SW_DWN']
+        if not isinstance(solar_dict, dict):
+            raise ValueError("Malformed response: ALLSKY_SFC_SW_DWN not a dict")
         df = pd.DataFrame.from_dict(solar_dict, orient='index', columns=['GHI'])
         df.index = pd.to_datetime(df.index, format='%Y%m%d')
         df.index.name = 'Date'
@@ -144,7 +173,7 @@ def get_volatility_params(
         Method for calculating returns:
         - 'log' (recommended): Log returns, symmetric and stable
         - 'pct_change': Simple percentage change (legacy, can create artifacts)
-        - 'normalized': Normalized by mean GHI
+        - 'std': Simple standard deviation of normalized changes (alias: 'normalized')
     cap_volatility : Optional[float]
         Optional cap on volatility for numerical stability.
         If None, no capping applied. If provided, caps at this level (e.g., 2.0 for 200%).
@@ -190,15 +219,15 @@ def get_volatility_params(
         # Simple returns: (P_t - P_{t-1}) / P_{t-1}
         # Can create artifacts with small denominators
         df['Returns'] = source_data.pct_change()
-    elif method == 'normalized':
+    elif method in {'normalized', 'std'}:
         # Normalized changes: (P_t - P_{t-1}) / mean(P)
-        # Alternative that avoids small denominator issue
+        # Matches documented 'std' method; kept as alias for backward compatibility
         mean_value = source_data.mean()
         df['Returns'] = (source_data - source_data.shift(1)) / mean_value
     else:
         raise ValueError(
             f"Unknown volatility method: '{method}'. "
-            f"Must be one of: 'log', 'pct_change', 'normalized'"
+            f"Must be one of: 'log', 'pct_change', 'std', 'normalized'"
         )
 
     # Step 3: Clean returns

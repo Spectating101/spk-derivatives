@@ -13,8 +13,8 @@ else:
 
 setup(
     name="spk-derivatives",
-    version="0.2.0",
-    description="Quantitative pricing framework for solar energy derivatives using NASA satellite data",
+    version="0.3.0",
+    description="Quantitative pricing framework for renewable energy derivatives (solar, wind, hydro) using NASA satellite data",
     long_description=long_description,
     long_description_content_type="text/markdown",
     author="SPK Derivatives Team",
