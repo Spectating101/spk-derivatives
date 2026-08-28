@@ -74,8 +74,55 @@
       "additionalProperties": false,
       "required": ["input", "scenario_model"],
       "properties": {
-        "input": {"type": "object"},
-        "scenario_model": {"type": "object"}
+        "input": {
+          "type": "object",
+          "properties": {
+            "kind": {"type": "string", "minLength": 1},
+            "schema": {"type": "string"},
+            "scenario_set_id": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+            "source": {"type": "string", "minLength": 1},
+            "source_hash": {
+              "oneOf": [
+                {"type": "null"},
+                {"type": "string", "pattern": "^[a-f0-9]{64}$"}
+              ]
+            },
+            "observed_at_utc": {"type": "string", "minLength": 1},
+            "price_unit": {"type": "string", "minLength": 1}
+          },
+          "allOf": [
+            {
+              "if": {
+                "properties": {"kind": {"const": "scenario-set"}},
+                "required": ["kind"]
+              },
+              "then": {
+                "required": [
+                  "kind",
+                  "schema",
+                  "scenario_set_id",
+                  "source",
+                  "source_hash",
+                  "observed_at_utc",
+                  "price_unit"
+                ],
+                "properties": {
+                  "schema": {"const": "spk_derivatives.scenario_set.v0.1"}
+                }
+              }
+            }
+          ]
+        },
+        "scenario_model": {
+          "type": "object",
+          "properties": {
+            "id": {"type": "string", "minLength": 1},
+            "parameters": {"type": "object"},
+            "seed": {"type": ["integer", "null"]},
+            "scenario_count": {"type": "integer", "minimum": 2}
+          },
+          "required": ["id"]
+        }
       }
     },
     "contract": {

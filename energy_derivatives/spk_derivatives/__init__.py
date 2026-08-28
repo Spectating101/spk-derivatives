@@ -29,6 +29,7 @@ from . import policy_lab
 from . import artifacts
 from . import policy_analysis
 from . import market_models
+from . import spike_models
 from . import market_calibration
 from . import forward_pricing
 from . import model_validation
@@ -82,6 +83,13 @@ from .market_models import (
     simulate_ou_terminal_prices,
 )
 
+# Mean-reverting electricity spike scenarios
+from .spike_models import (
+    MeanRevertingJumpConfig,
+    SpikeModelError,
+    simulate_mean_reverting_jump_terminal_prices,
+)
+
 # Forward curves and market calibration
 from .market_calibration import (
     ForwardCurve,
@@ -109,6 +117,9 @@ from .scenario_set import (
     ScenarioSetError,
     build_joint_scenarios,
     build_market_price_scenarios,
+    load_scenario_set,
+    validate_scenario_set,
+    write_scenario_set,
 )
 
 # Model validation and replay diagnostics
@@ -271,6 +282,7 @@ __all__ = [
     "artifacts",
     "policy_analysis",
     "market_models",
+    "spike_models",
     "market_calibration",
     "forward_pricing",
     "model_validation",
@@ -299,6 +311,11 @@ __all__ = [
     "ou_terminal_moments",
     "simulate_ou_terminal_prices",
 
+    # Electricity spike scenarios
+    "SpikeModelError",
+    "MeanRevertingJumpConfig",
+    "simulate_mean_reverting_jump_terminal_prices",
+
     # Forward curves and market calibration
     "MarketCalibrationError",
     "ForwardCurveNode",
@@ -321,6 +338,9 @@ __all__ = [
     "ScenarioSet",
     "build_market_price_scenarios",
     "build_joint_scenarios",
+    "load_scenario_set",
+    "validate_scenario_set",
+    "write_scenario_set",
 
     # Model validation
     "ModelValidationError",

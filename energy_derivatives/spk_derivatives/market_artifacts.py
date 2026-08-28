@@ -12,6 +12,7 @@ from .artifacts import SPK_CANONICALIZATION, sha256_hex
 from .energy_contracts import EnergyContract
 from .policy_lab import POLICY_LAB_PROFILE, POLICY_LAB_SCHEMA, PolicyLabExposure
 from .scenario_risk import PolicySettlementDistribution
+from .scenario_set import SCENARIO_SET_SCHEMA
 
 
 SPK_MARKET_RISK_SCHEMA = "spk_derivatives.market_risk_package.v0.1"
@@ -83,6 +84,11 @@ def _sha(parent: Mapping[str, Any], key: str, context: str) -> str:
     if not _SHA256.fullmatch(value):
         raise MarketRiskArtifactError(f"{context}.{key} must be lowercase SHA-256 hex")
     return value
+
+
+def _optional_sha(value: Any, context: str) -> None:
+    if value is not None and (not isinstance(value, str) or not _SHA256.fullmatch(value)):
+        raise MarketRiskArtifactError(f"{context} must be null or lowercase SHA-256 hex")
 
 
 def build_market_risk_package(
@@ -230,10 +236,32 @@ def validate_market_risk_package(
     _string(period, "end", "package.exposure.period_utc")
 
     market = _mapping(package, "market", "package")
-    if not isinstance(market.get("input"), Mapping):
-        raise MarketRiskArtifactError("package.market.input must be an object")
-    if not isinstance(market.get("scenario_model"), Mapping):
-        raise MarketRiskArtifactError("package.market.scenario_model must be an object")
+    market_input = _mapping(market, "input", "package.market")
+    scenario_model = _mapping(market, "scenario_model", "package.market")
+    input_kind = _string(market_input, "kind", "package.market.input")
+
+    if input_kind == "scenario-set":
+        if _string(market_input, "schema", "package.market.input") != SCENARIO_SET_SCHEMA:
+            raise MarketRiskArtifactError("package.market.input.schema is unsupported")
+        _sha(market_input, "scenario_set_id", "package.market.input")
+        _string(market_input, "source", "package.market.input")
+        _optional_sha(market_input.get("source_hash"), "package.market.input.source_hash")
+        _string(market_input, "observed_at_utc", "package.market.input")
+        _string(market_input, "price_unit", "package.market.input")
+        parameters = scenario_model.get("parameters")
+        if not isinstance(parameters, Mapping):
+            raise MarketRiskArtifactError(
+                "package.market.scenario_model.parameters must be an object for scenario-set input"
+            )
+        if "seed" not in scenario_model:
+            raise MarketRiskArtifactError(
+                "package.market.scenario_model.seed must be present for scenario-set input"
+            )
+
+    _string(scenario_model, "id", "package.market.scenario_model")
+    seed = scenario_model.get("seed")
+    if seed is not None and (isinstance(seed, bool) or not isinstance(seed, int)):
+        raise MarketRiskArtifactError("package.market.scenario_model.seed must be an integer or null")
 
     contract = _mapping(package, "contract", "package")
     contract_quantity_unit = _string(contract, "quantity_unit", "package.contract")
@@ -243,6 +271,9 @@ def validate_market_risk_package(
         raise MarketRiskArtifactError("contract/exposure quantity units do not match")
     if price_unit != f"{currency}/{quantity_unit}":
         raise MarketRiskArtifactError("package.contract.price_unit is inconsistent")
+    market_price_unit = market_input.get("price_unit")
+    if input_kind == "scenario-set" and market_price_unit != price_unit:
+        raise MarketRiskArtifactError("scenario-set/contract price units do not match")
 
     risk = _mapping(package, "risk", "package")
     if _string(risk, "quantity_unit", "package.risk") != quantity_unit:
@@ -255,6 +286,31 @@ def validate_market_risk_package(
     scenarios = risk.get("scenarios")
     if isinstance(scenarios, bool) or not isinstance(scenarios, int) or scenarios < 2:
         raise MarketRiskArtifactError("package.risk.scenarios must be an integer >= 2")
+
+    model_scenarios = scenario_model.get("scenario_count")
+    if input_kind == "scenario-set":
+        if (
+            isinstance(model_scenarios, bool)
+            or not isinstance(model_scenarios, int)
+            or model_scenarios < 2
+        ):
+            raise MarketRiskArtifactError(
+                "package.market.scenario_model.scenario_count must be an integer >= 2"
+            )
+        if model_scenarios != scenarios:
+            raise MarketRiskArtifactError(
+                "scenario model count does not match risk scenario count"
+            )
+    elif model_scenarios is not None:
+        if isinstance(model_scenarios, bool) or not isinstance(model_scenarios, int):
+            raise MarketRiskArtifactError(
+                "package.market.scenario_model.scenario_count must be an integer"
+            )
+        if model_scenarios != scenarios:
+            raise MarketRiskArtifactError(
+                "scenario model count does not match risk scenario count"
+            )
+
     for key in (
         "market_price_mean",
         "market_price_std",
