@@ -1,22 +1,24 @@
 # Policy Lab Integration
 
-SPK Derivatives v0.5 adds a deliberately narrow bridge from Policy Lab into the
-pricing layer.
+SPK Derivatives v0.5 defines a deliberately strict boundary from Policy Lab into
+the pricing layer.
 
 The design rule is:
 
 > **Policy Lab decides what quantity is admissible under a policy; SPK
-> Derivatives prices the consequences of that admitted quantity.**
+> Derivatives prices the consequences of that admitted quantity and records its
+> own assumptions/results downstream.**
 
 SPK does not duplicate Policy Lab's evidence registry, constraint calculators,
 governance rules, artifact canonicalization, or settlement authority.
 
 ## Upstream contract
 
-The bridge targets the Policy Lab schema:
+The bridge targets exactly:
 
 ```text
-policylab.claim_assessment_package.v0.1
+schema:  policylab.claim_assessment_package.v0.1
+profile: policylab.energy_linked_claim.v0
 ```
 
 Reference implementation/schema:
@@ -24,26 +26,28 @@ Reference implementation/schema:
 - Repository: `Spectating101/solarpunk-coin`
 - Schema: `protocol/schema/claim-assessment-package.v0.1.schema.json`
 
-The upstream artifact contains separate identities for the assessment and the
-package content, the claim and evidence, one or more policy evaluations, and
-optional settlement information.
+Policy Lab owns canonical package production and its SHA-256 identity rules. SPK
+retains those identities verbatim rather than attempting to become a second
+canonicalization authority.
 
-## What SPK consumes
+## What SPK validates at the boundary
 
-`extract_admitted_exposure()` reads the following information downstream:
+SPK validates the subset of the upstream protocol it actually consumes:
 
-| Area | Fields retained/used |
+| Area | Downstream requirement |
 | --- | --- |
-| Artifact | `schema`, `assessment_id`, `package_content_id` |
-| Claim | `claim_id`, `case_id`, `subject`, request mode/quantity, canonical UTC period |
-| Evidence | assurance level, `evidence_hash`, eligible quantity/unit, warnings |
-| Policy evaluation | policy id/version/name, `decision_id`, `external_reading`, `supported_quantity`, binding calculators, rule warnings |
-| Settlement | `scenario_only` when present |
+| Schema/profile | exact claim-assessment schema + energy-linked profile |
+| Artifact identity | lowercase SHA-256 `assessment_id` and `package_content_id` |
+| Evidence identity | lowercase SHA-256 `evidence_hash` |
+| Policy decision | lowercase SHA-256 `decision_id` |
+| Assurance | `L0` through `L4` |
+| Unit semantics | eligible evidence unit matches profile `source_unit`; admitted quantity unit matches profile `claim_unit` |
+| Claim | claim/case/subject/request mode + canonical UTC period |
+| Admission | admitted external reading + supported quantity |
+| Ambiguity | explicit `policy_id` when several evaluations admit quantities |
 
-The bridge performs lightweight structural/semantic checks needed for safe
-downstream use. It is **not a replacement for full JSON Schema validation**.
-Canonical artifact production and complete schema validation remain upstream
-responsibilities.
+This is a fail-closed interoperability contract, **not a replacement for Policy
+Lab's complete validator**.
 
 ## Admission semantics
 
@@ -54,12 +58,11 @@ ADMITTED_WITH_LIMIT_UNDER_POLICY
 ADMITTED_UNDER_POLICY
 ```
 
-`BLOCKED_UNDER_POLICY` is rejected.
-
-An evaluation with no `supported_quantity` is also rejected.
+`BLOCKED_UNDER_POLICY` is rejected. An evaluation with no `supported_quantity`
+is rejected.
 
 If a package contains multiple admitted policy evaluations, SPK refuses to pick
-one implicitly. Supply `policy_id`:
+one implicitly:
 
 ```python
 from spk_derivatives import extract_admitted_exposure
@@ -70,9 +73,9 @@ exposure = extract_admitted_exposure(
 )
 ```
 
-This matters because two governance policies can lawfully admit different
-quantities from the same evidence. Picking one silently would turn a governance
-choice into an accidental software default.
+Two governance policies can legitimately admit different quantities from the
+same evidence. Selecting one silently would turn a governance choice into a
+software default.
 
 ## Pricing an admitted exposure
 
@@ -96,8 +99,8 @@ result = price_admitted_exposure(
 )
 ```
 
-The model first produces a **per-unit** derivative value. SPK then multiplies
-that result by the exact `supported_quantity` emitted by Policy Lab.
+The model produces a **per-unit** derivative value. SPK then multiplies that
+value by the exact `supported_quantity` emitted by Policy Lab.
 
 SPK does not:
 
@@ -106,10 +109,9 @@ SPK does not:
 - convert units implicitly,
 - infer a market price from evidence,
 - increase an evidence assurance level,
-- reinterpret a blocked decision as a scenario.
+- reinterpret a blocked decision as an admitted scenario.
 
-Therefore `S0` and `K` must be denominated per unit of
-`exposure.unit`.
+Therefore `S0` and `K` must be denominated per unit of `exposure.unit`.
 
 ## Provenance carried into pricing
 
@@ -125,13 +127,37 @@ evidence_hash
 evidence_assurance
 ```
 
-The intended downstream invariant is:
+The intended invariant is:
 
-> A valuation can be reproduced together with the exact evidence/policy decision
-> that authorized the quantity being valued.
+> A valuation must remain traceable to the exact Policy Lab evidence/policy
+> decision that authorized the quantity being valued.
 
-This is especially useful when the same physical evidence is evaluated under
-multiple policy regimes or when a policy version changes.
+## From pricing result to auditable artifact
+
+For durable downstream use, create an SPK result package rather than copying the
+price alone:
+
+```python
+from spk_derivatives import build_policy_pricing_package
+
+package = build_policy_pricing_package(
+    exposure,
+    result,
+    S0=0.035,
+    K=0.040,
+    T=1.0,
+    r=0.025,
+    sigma=0.42,
+    steps=200,
+    assumptions=["Risk-neutral valuation"],
+)
+```
+
+That package preserves Policy Lab provenance and adds SPK model inputs,
+reproducibility controls, assumptions, valuation, warnings, non-claims, and two
+SPK-owned deterministic identities.
+
+See `docs/PRICING_ARTIFACT_PROTOCOL.md`.
 
 ## CLI
 
@@ -141,15 +167,7 @@ Inspect an admitted quantity:
 spk-derivatives policy-check claim-assessment.json --json
 ```
 
-Select a policy explicitly:
-
-```bash
-spk-derivatives policy-check claim-assessment.json \
-  --policy conservative-energy-policy \
-  --json
-```
-
-Price the admitted exposure:
+Price and emit a result artifact:
 
 ```bash
 spk-derivatives policy-price claim-assessment.json \
@@ -162,36 +180,37 @@ spk-derivatives policy-price claim-assessment.json \
   --method monte-carlo \
   --simulations 50000 \
   --seed 7 \
+  --package-out pricing-result.json \
+  --json
+```
+
+Verify both sides of the boundary:
+
+```bash
+spk-derivatives preflight \
+  --policy-package claim-assessment.json \
+  --policy conservative-energy-policy \
+  --result-package pricing-result.json \
   --json
 ```
 
 ## Failure modes are part of the interface
 
-The bridge fails closed on the most important boundary cases:
+The bridge fails closed on the important boundary cases:
 
 | Condition | Behavior |
 | --- | --- |
-| Unsupported schema | error |
-| Missing artifact/claim/evidence identities | error |
+| Unsupported schema/profile | error |
+| Malformed upstream SHA-256 identity | error |
+| Assurance outside `L0`–`L4` | error |
+| Profile/evidence/claim unit mismatch | error |
 | No policy evaluations | error |
 | Only blocked evaluations | error |
 | Missing supported quantity | error |
 | Multiple admitted policies without selector | error |
-| Non-finite or negative supported quantity | error |
+| Non-finite or negative quantity | error |
+| Invalid model bounds/reproducibility controls | error |
 | Unknown pricing method | error |
 
-This is intentional. Policy/evidence ambiguity should be made visible before
-quantitative modeling begins.
-
-## Extension direction
-
-The current bridge is intentionally small. Natural next integrations include:
-
-1. attaching Policy Lab decision identities to stress/scenario exports,
-2. batch-pricing several explicitly selected policy regimes side by side,
-3. comparing policy-induced quantity caps before/after market-risk effects,
-4. emitting a combined machine-readable research package containing both
-   constraint provenance and pricing assumptions/results.
-
-Those should remain downstream extensions rather than copies of Policy Lab's
-authority logic.
+Policy/evidence ambiguity is therefore surfaced **before** quantitative modeling
+begins rather than disappearing inside a default.

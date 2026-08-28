@@ -5,19 +5,24 @@ not re-evaluate evidence or policy. It consumes a machine-readable
 ``policylab.claim_assessment_package.v0.1`` artifact and exposes only quantities
 that Policy Lab has already admitted under a named policy.
 
-The bridge keeps the decision and evidence identities attached to downstream
-pricing results so that quantitative analysis cannot silently detach from the
-constraint package that authorized the exposure.
+The bridge fails closed on the subset of the upstream contract that SPK actually
+consumes: schema/profile identity, cryptographic identifiers, assurance level,
+unit mapping, policy selection, and admitted quantity. Full canonical package
+production and governance validation remain Policy Lab responsibilities.
 """
 
 from dataclasses import asdict, dataclass
 import json
 import math
 from pathlib import Path
+import re
 from typing import Any, Dict, Mapping, Optional, Tuple, Union
 
 
 POLICY_LAB_SCHEMA = "policylab.claim_assessment_package.v0.1"
+POLICY_LAB_PROFILE = "policylab.energy_linked_claim.v0"
+SHA256_PATTERN = re.compile(r"^[a-f0-9]{64}$")
+ASSURANCE_PATTERN = re.compile(r"^L[0-4]$")
 ADMITTED_READINGS = {
     "ADMITTED_WITH_LIMIT_UNDER_POLICY",
     "ADMITTED_UNDER_POLICY",
@@ -33,6 +38,7 @@ class PolicyLabExposure:
     """An exposure quantity already admitted by Policy Lab."""
 
     schema: str
+    profile_id: str
     assessment_id: str
     package_content_id: str
     claim_id: str
@@ -108,17 +114,24 @@ def load_claim_assessment(source: PackageSource) -> Dict[str, Any]:
     return payload
 
 
-def _require_mapping(parent: Mapping[str, Any], key: str) -> Mapping[str, Any]:
+def _require_mapping(parent: Mapping[str, Any], key: str, context: str = "package") -> Mapping[str, Any]:
     value = parent.get(key)
     if not isinstance(value, Mapping):
-        raise PolicyLabPackageError(f"Missing or invalid object: {key}")
+        raise PolicyLabPackageError(f"Missing or invalid {context}.{key}")
     return value
 
 
 def _require_string(parent: Mapping[str, Any], key: str, context: str) -> str:
     value = parent.get(key)
-    if not isinstance(value, str) or not value:
+    if not isinstance(value, str) or not value.strip():
         raise PolicyLabPackageError(f"Missing or invalid {context}.{key}")
+    return value
+
+
+def _require_sha256(parent: Mapping[str, Any], key: str, context: str) -> str:
+    value = _require_string(parent, key, context)
+    if not SHA256_PATTERN.fullmatch(value):
+        raise PolicyLabPackageError(f"{context}.{key} must be a lowercase SHA-256 hex string")
     return value
 
 
@@ -202,16 +215,26 @@ def extract_admitted_exposure(
             f"Unsupported Policy Lab schema: {schema!r}; expected {POLICY_LAB_SCHEMA!r}"
         )
 
-    assessment_id = _require_string(package, "assessment_id", "package")
-    package_content_id = _require_string(package, "package_content_id", "package")
+    profile = _require_mapping(package, "profile")
+    profile_id = _require_string(profile, "id", "profile")
+    if profile_id != POLICY_LAB_PROFILE:
+        raise PolicyLabPackageError(
+            f"Unsupported Policy Lab profile: {profile_id!r}; expected {POLICY_LAB_PROFILE!r}"
+        )
+    unit_mapping = _require_mapping(profile, "unit_mapping", "profile")
+    source_unit = _require_string(unit_mapping, "source_unit", "profile.unit_mapping")
+    claim_unit = _require_string(unit_mapping, "claim_unit", "profile.unit_mapping")
+
+    assessment_id = _require_sha256(package, "assessment_id", "package")
+    package_content_id = _require_sha256(package, "package_content_id", "package")
     claim = _require_mapping(package, "claim")
     evidence = _require_mapping(package, "evidence")
     evaluation = _select_evaluation(package, policy_id)
-    policy = _require_mapping(evaluation, "policy")
-    supported = _require_mapping(evaluation, "supported_quantity")
-    period = _require_mapping(claim, "period")
-    canonical_utc = _require_mapping(period, "canonical_utc")
-    eligible_quantity = _require_mapping(evidence, "eligible_quantity")
+    policy = _require_mapping(evaluation, "policy", "evaluation")
+    supported = _require_mapping(evaluation, "supported_quantity", "evaluation")
+    period = _require_mapping(claim, "period", "claim")
+    canonical_utc = _require_mapping(period, "canonical_utc", "claim.period")
+    eligible_quantity = _require_mapping(evidence, "eligible_quantity", "evidence")
 
     external_reading = _require_string(evaluation, "external_reading", "evaluation")
     if external_reading not in ADMITTED_READINGS:
@@ -225,13 +248,30 @@ def extract_admitted_exposure(
     if quantity < 0:
         raise PolicyLabPackageError("Supported quantity cannot be negative")
     unit = _require_string(supported, "unit", "evaluation.supported_quantity")
+    if unit != claim_unit:
+        raise PolicyLabPackageError(
+            "evaluation.supported_quantity.unit does not match profile.unit_mapping.claim_unit"
+        )
 
     evidence_value = _as_finite_number(
         eligible_quantity.get("value"), "evidence.eligible_quantity.value"
     )
+    if evidence_value < 0:
+        raise PolicyLabPackageError("Evidence eligible quantity cannot be negative")
     evidence_unit = _require_string(
         eligible_quantity, "unit", "evidence.eligible_quantity"
     )
+    if evidence_unit != source_unit:
+        raise PolicyLabPackageError(
+            "evidence.eligible_quantity.unit does not match profile.unit_mapping.source_unit"
+        )
+
+    assurance = _require_string(evidence, "assurance", "evidence")
+    if not ASSURANCE_PATTERN.fullmatch(assurance):
+        raise PolicyLabPackageError("evidence.assurance must be L0-L4")
+
+    evidence_hash = _require_sha256(evidence, "evidence_hash", "evidence")
+    decision_id = _require_sha256(evaluation, "decision_id", "evaluation")
 
     requested = claim.get("requested_quantity")
     requested_quantity = (
@@ -239,39 +279,48 @@ def extract_admitted_exposure(
         if requested is None
         else _as_finite_number(requested, "claim.requested_quantity")
     )
+    if requested_quantity is not None and requested_quantity < 0:
+        raise PolicyLabPackageError("claim.requested_quantity cannot be negative")
 
     binding_raw = evaluation.get("binding_calculators", [])
-    if not isinstance(binding_raw, list):
-        raise PolicyLabPackageError("evaluation.binding_calculators must be an array")
-    binding_calculators = tuple(str(item) for item in binding_raw)
+    if not isinstance(binding_raw, list) or any(
+        not isinstance(item, str) or not item for item in binding_raw
+    ):
+        raise PolicyLabPackageError(
+            "evaluation.binding_calculators must be an array of non-empty strings"
+        )
+    binding_calculators = tuple(binding_raw)
 
     warnings = []
     evidence_warnings = evidence.get("warnings", [])
-    if isinstance(evidence_warnings, list):
-        for warning in evidence_warnings:
-            if isinstance(warning, Mapping):
-                code = warning.get("code")
-                detail = warning.get("detail")
-                if code and detail:
-                    warnings.append(f"{code}: {detail}")
-                elif code:
-                    warnings.append(str(code))
-            elif warning:
-                warnings.append(str(warning))
+    if not isinstance(evidence_warnings, list):
+        raise PolicyLabPackageError("evidence.warnings must be an array")
+    for warning in evidence_warnings:
+        if isinstance(warning, Mapping):
+            code = warning.get("code")
+            detail = warning.get("detail")
+            if code and detail:
+                warnings.append(f"{code}: {detail}")
+            elif code:
+                warnings.append(str(code))
+        elif warning:
+            warnings.append(str(warning))
 
     rule_evaluations = evaluation.get("rule_evaluations", [])
-    if isinstance(rule_evaluations, list):
-        for rule in rule_evaluations:
-            if not isinstance(rule, Mapping):
-                continue
-            calculator_id = str(rule.get("calculator_id", "rule"))
-            rule_warnings = rule.get("warnings", [])
-            if isinstance(rule_warnings, list):
-                warnings.extend(
-                    f"{calculator_id}: {warning}"
-                    for warning in rule_warnings
-                    if warning
-                )
+    if not isinstance(rule_evaluations, list):
+        raise PolicyLabPackageError("evaluation.rule_evaluations must be an array")
+    for rule in rule_evaluations:
+        if not isinstance(rule, Mapping):
+            continue
+        calculator_id = str(rule.get("calculator_id", "rule"))
+        rule_warnings = rule.get("warnings", [])
+        if not isinstance(rule_warnings, list):
+            raise PolicyLabPackageError("rule_evaluation.warnings must be an array")
+        warnings.extend(
+            f"{calculator_id}: {warning}"
+            for warning in rule_warnings
+            if warning
+        )
 
     settlement = package.get("settlement")
     scenario_only: Optional[bool] = None
@@ -287,6 +336,7 @@ def extract_admitted_exposure(
 
     return PolicyLabExposure(
         schema=schema,
+        profile_id=profile_id,
         assessment_id=assessment_id,
         package_content_id=package_content_id,
         claim_id=_require_string(claim, "claim_id", "claim"),
@@ -299,12 +349,12 @@ def extract_admitted_exposure(
         policy_id=_require_string(policy, "id", "evaluation.policy"),
         policy_version=policy_version,
         policy_name=_require_string(policy, "name", "evaluation.policy"),
-        decision_id=_require_string(evaluation, "decision_id", "evaluation"),
+        decision_id=decision_id,
         external_reading=external_reading,
         quantity=quantity,
         unit=unit,
-        evidence_assurance=_require_string(evidence, "assurance", "evidence"),
-        evidence_hash=_require_string(evidence, "evidence_hash", "evidence"),
+        evidence_assurance=assurance,
+        evidence_hash=evidence_hash,
         evidence_quantity=evidence_value,
         evidence_unit=evidence_unit,
         binding_calculators=binding_calculators,
@@ -334,9 +384,23 @@ def price_admitted_exposure(
     quantity. Total value is simply the model's per-unit price multiplied by the
     Policy Lab-supported quantity.
     """
+    for value, name in (
+        (S0, "S0"),
+        (K, "K"),
+        (T, "T"),
+        (r, "r"),
+        (sigma, "sigma"),
+    ):
+        if not math.isfinite(float(value)):
+            raise ValueError(f"{name} must be finite")
+    if S0 < 0 or K < 0 or T <= 0 or sigma < 0:
+        raise ValueError("S0/K/sigma must be non-negative and T must be positive")
+
     method_normalized = method.strip().lower().replace("_", "-")
 
     if method_normalized == "binomial":
+        if isinstance(steps, bool) or not isinstance(steps, int) or steps < 1:
+            raise ValueError("steps must be a positive integer")
         from .binomial import BinomialTree
 
         model = BinomialTree(
@@ -351,6 +415,14 @@ def price_admitted_exposure(
         unit_price = float(model.price())
         method_name = "binomial"
     elif method_normalized in {"monte-carlo", "mc"}:
+        if (
+            isinstance(num_simulations, bool)
+            or not isinstance(num_simulations, int)
+            or num_simulations < 1
+        ):
+            raise ValueError("num_simulations must be a positive integer")
+        if seed is not None and (isinstance(seed, bool) or not isinstance(seed, int)):
+            raise ValueError("seed must be an integer or null")
         from .monte_carlo import MonteCarloSimulator
 
         model = MonteCarloSimulator(
@@ -367,6 +439,9 @@ def price_admitted_exposure(
         method_name = "monte-carlo"
     else:
         raise ValueError("method must be 'binomial' or 'monte-carlo'")
+
+    if not math.isfinite(unit_price) or unit_price < 0:
+        raise ValueError("Pricing engine returned an invalid unit price")
 
     return PolicyPricedExposure(
         method=method_name,

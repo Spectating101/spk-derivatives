@@ -1,0 +1,39 @@
+{
+  "schema": "spk_derivatives.current_surface.v0.1",
+  "package": {
+    "name": "spk-derivatives",
+    "version": "0.5.0",
+    "status": "research-beta"
+  },
+  "authority_boundary": {
+    "upstream": "Policy Lab",
+    "claim_assessment_schema": "policylab.claim_assessment_package.v0.1",
+    "profile_id": "policylab.energy_linked_claim.v0",
+    "responsibility": "evidence, admissibility, policy constraints, governance",
+    "downstream_responsibility": "pricing, risk, scenario and model consequences"
+  },
+  "artifact_protocol": {
+    "pricing_result_schema": "spk_derivatives.pricing_result_package.v0.1",
+    "schema_path": "protocol/schema/pricing-result-package.v0.1.schema.json",
+    "identity_algorithm": "SHA-256",
+    "canonicalization": "python-json-sort-keys-compact-utf8-v0.1"
+  },
+  "canonical_commands": [
+    "spk-derivatives info",
+    "spk-derivatives preflight",
+    "spk-derivatives policy-check",
+    "spk-derivatives policy-price",
+    "spk-derivatives verify-result"
+  ],
+  "validation": {
+    "python_tests": "energy_derivatives/tests",
+    "solidity_tests": ".github/workflows/solidity-tests.yml",
+    "solidity_security": ".github/workflows/solidity-security.yml"
+  },
+  "non_claims": [
+    "SPK Derivatives is not a policy authority.",
+    "SPK Derivatives does not upgrade Policy Lab evidence assurance.",
+    "Model output is not settlement, legal, regulatory, liquidity, or execution authority.",
+    "The repository remains research/beta software rather than a production trading system."
+  ]
+}
