@@ -5,8 +5,8 @@ SPK Derivatives: Energy Derivatives Pricing Framework
 A quantitative framework for pricing energy derivatives (solar, wind, hydro)
 using binomial trees, Monte-Carlo simulation, forward-market models,
 policy-admitted exposure quantities, deterministic research artifacts, explicit
-contract settlement, joint volume-price risk, market/model sensitivity, and
-policy-sensitivity analysis.
+contract settlement, joint volume-price risk, reproducible scenarios,
+market/model validation, and policy-sensitivity analysis.
 """
 
 __version__ = "0.5.0"
@@ -30,6 +30,9 @@ from . import artifacts
 from . import policy_analysis
 from . import market_models
 from . import market_calibration
+from . import forward_pricing
+from . import model_validation
+from . import scenario_set
 from . import energy_contracts
 from . import scenario_risk
 from . import market_artifacts
@@ -90,6 +93,32 @@ from .market_calibration import (
     calibrate_ou_from_series,
     estimate_lognormal_volatility,
     estimate_normal_volatility,
+)
+
+# Provenance-bound forward-curve option pricing
+from .forward_pricing import (
+    CurveOptionValue,
+    ForwardPricingError,
+    price_forward_curve_option,
+)
+
+# Reproducible scenario-set manifests
+from .scenario_set import (
+    SCENARIO_SET_SCHEMA,
+    ScenarioSet,
+    ScenarioSetError,
+    build_joint_scenarios,
+    build_market_price_scenarios,
+)
+
+# Model validation and replay diagnostics
+from .model_validation import (
+    AnalyticMonteCarloValidation,
+    ModelValidationError,
+    ReplayMetrics,
+    historical_replay_metrics,
+    validate_bachelier_monte_carlo,
+    validate_black76_monte_carlo,
 )
 
 # Explicit unit conversions
@@ -243,6 +272,9 @@ __all__ = [
     "policy_analysis",
     "market_models",
     "market_calibration",
+    "forward_pricing",
+    "model_validation",
+    "scenario_set",
     "units",
     "energy_contracts",
     "scenario_risk",
@@ -277,6 +309,26 @@ __all__ = [
     "estimate_normal_volatility",
     "estimate_lognormal_volatility",
     "calibrate_ou_from_series",
+
+    # Provenance-bound forward pricing
+    "ForwardPricingError",
+    "CurveOptionValue",
+    "price_forward_curve_option",
+
+    # Reproducible scenario manifests
+    "SCENARIO_SET_SCHEMA",
+    "ScenarioSetError",
+    "ScenarioSet",
+    "build_market_price_scenarios",
+    "build_joint_scenarios",
+
+    # Model validation
+    "ModelValidationError",
+    "AnalyticMonteCarloValidation",
+    "ReplayMetrics",
+    "validate_black76_monte_carlo",
+    "validate_bachelier_monte_carlo",
+    "historical_replay_metrics",
 
     # Explicit unit conversions
     "UnitConversionError",

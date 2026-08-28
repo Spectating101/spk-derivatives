@@ -6,6 +6,7 @@ from spk_derivatives.artifacts import SPK_CANONICALIZATION, SPK_PRICING_PACKAGE_
 from spk_derivatives.market_artifacts import SPK_MARKET_RISK_SCHEMA
 from spk_derivatives.policy_analysis import SPK_POLICY_COMPARISON_SCHEMA
 from spk_derivatives.policy_lab import POLICY_LAB_PROFILE, POLICY_LAB_SCHEMA
+from spk_derivatives.scenario_set import SCENARIO_SET_SCHEMA
 
 
 def test_current_surface_matches_runtime_contracts():
@@ -20,14 +21,18 @@ def test_current_surface_matches_runtime_contracts():
     assert surface["artifact_protocol"]["pricing_result_schema"] == SPK_PRICING_PACKAGE_SCHEMA
     assert surface["artifact_protocol"]["policy_comparison_schema"] == SPK_POLICY_COMPARISON_SCHEMA
     assert surface["artifact_protocol"]["market_risk_schema"] == SPK_MARKET_RISK_SCHEMA
+    assert surface["artifact_protocol"]["scenario_set_schema"] == SCENARIO_SET_SCHEMA
     assert surface["artifact_protocol"]["canonicalization"] == SPK_CANONICALIZATION
     assert "black-76-forward-option" in surface["market_model_boundary"]["market_models"]
     assert "bachelier-normal-forward-option" in surface["market_model_boundary"]["market_models"]
     assert "provenance-bearing-forward-curves" in surface["market_model_boundary"]["market_inputs"]
     assert "fixed-price" in surface["market_model_boundary"]["contract_settlement"]
     assert "explicit conversion objects" in surface["market_model_boundary"]["unit_conversion"]
+    assert "curve source" in surface["market_model_boundary"]["forward_pricing_provenance"]
     assert "comparison" in surface["model_sensitivity"]
     assert "authority_cap" in surface["joint_volume_price_risk"]
+    assert "scenario_sets" in surface["reproducibility"]
+    assert "analytic_monte_carlo" in surface["reproducibility"]
     assert "spk-derivatives market-risk" in surface["canonical_commands"]
     assert "spk-derivatives verify-market-risk" in surface["canonical_commands"]
 
@@ -45,3 +50,4 @@ def test_current_surface_paths_exist():
     assert (root / surface["validation"]["trust_boundary"]).is_file()
     assert (root / surface["validation"]["market_model_architecture"]).is_file()
     assert (root / surface["validation"]["market_calibration_and_risk"]).is_file()
+    assert (root / surface["validation"]["scenario_identity_and_model_validation"]).is_file()

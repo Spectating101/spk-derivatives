@@ -1,0 +1,73 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://spectating101.github.io/spk-derivatives/schema/scenario-set.v0.1.schema.json",
+  "title": "SPK Derivatives Scenario Set v0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "scenario_set_id",
+    "scenario_count",
+    "kind",
+    "price_unit",
+    "market_prices",
+    "quantity_unit",
+    "quantities",
+    "source",
+    "source_hash",
+    "observed_at_utc",
+    "model_id",
+    "model_parameters",
+    "seed"
+  ],
+  "properties": {
+    "schema": {"const": "spk_derivatives.scenario_set.v0.1"},
+    "scenario_set_id": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "scenario_count": {"type": "integer", "minimum": 2},
+    "kind": {"enum": ["market-price", "joint-volume-price"]},
+    "price_unit": {"type": "string", "minLength": 1},
+    "market_prices": {
+      "type": "array",
+      "minItems": 2,
+      "items": {"type": "number"}
+    },
+    "quantity_unit": {"type": ["string", "null"]},
+    "quantities": {
+      "oneOf": [
+        {"type": "null"},
+        {"type": "array", "minItems": 2, "items": {"type": "number", "minimum": 0}}
+      ]
+    },
+    "source": {"type": "string", "minLength": 1},
+    "source_hash": {
+      "oneOf": [
+        {"type": "null"},
+        {"type": "string", "pattern": "^[a-f0-9]{64}$"}
+      ]
+    },
+    "observed_at_utc": {"type": "string", "minLength": 1},
+    "model_id": {"type": "string", "minLength": 1},
+    "model_parameters": {"type": "object"},
+    "seed": {"type": ["integer", "null"]}
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"kind": {"const": "market-price"}}},
+      "then": {
+        "properties": {
+          "quantity_unit": {"type": "null"},
+          "quantities": {"type": "null"}
+        }
+      }
+    },
+    {
+      "if": {"properties": {"kind": {"const": "joint-volume-price"}}},
+      "then": {
+        "properties": {
+          "quantity_unit": {"type": "string", "minLength": 1},
+          "quantities": {"type": "array", "minItems": 2, "items": {"type": "number", "minimum": 0}}
+        }
+      }
+    }
+  ]
+}
