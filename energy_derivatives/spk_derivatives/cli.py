@@ -113,7 +113,7 @@ def _runtime_info() -> Dict[str, Any]:
     return {
         "name": "spk-derivatives",
         "version": __version__,
-        "status": "research-beta",
+        "software_status": "research-beta",
         "pricing": "binomial, monte-carlo, Greeks, stress/scenario analysis",
         "energy": "solar, wind, hydro",
         "policy_lab_schema": POLICY_LAB_SCHEMA,
@@ -148,7 +148,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             return 0
 
         if args.command == "preflight":
-            payload = {"status": "ok", **_runtime_info()}
+            payload = {**_runtime_info(), "status": "ok"}
             if args.policy_package:
                 exposure = extract_admitted_exposure(
                     args.policy_package, policy_id=args.policy_id
