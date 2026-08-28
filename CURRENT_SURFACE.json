@@ -27,6 +27,7 @@
       "diagnostic-ou-calibration"
     ],
     "forward_curve_extrapolation": "rejected by default; only interpolation inside observed maturities is supported",
+    "unit_conversion": "implicit conversion is rejected; explicit conversion objects are required and carry deterministic identities",
     "contract_settlement": [
       "merchant",
       "fixed-price",
@@ -56,6 +57,11 @@
     "comparison": "multiple named market-price scenario sets can be compared under one fixed admitted quantity and contract",
     "risk_summary": "mean, standard deviation, 5th/50th/95th percentiles, negative-value probability, and protection value relative to merchant exposure"
   },
+  "joint_volume_price_risk": {
+    "principle": "realized physical quantity and market price can vary jointly without being collapsed into one stochastic variable",
+    "authority_cap": "Policy Lab-admitted quantity is an upper bound for policy-bound realized-quantity scenarios",
+    "dependence": "paired scenarios preserve empirical quantity-price dependence and report correlation when defined"
+  },
   "canonical_commands": [
     "spk-derivatives info",
     "spk-derivatives preflight",
@@ -81,6 +87,8 @@
     "SPK Derivatives does not upgrade Policy Lab evidence assurance.",
     "Policy sensitivity is not the same thing as market/model sensitivity or evidence truth.",
     "Historical calibration does not automatically establish a risk-neutral pricing measure.",
+    "Explicit unit conversion does not establish semantic equivalence between claims, certificates, credits, and physical energy.",
+    "Joint realized-quantity scenarios cannot expand Policy Lab-admitted authority.",
     "Model output is not settlement, legal, regulatory, liquidity, or execution authority.",
     "Ornstein-Uhlenbeck scenarios are not automatically a risk-neutral pricing measure.",
     "Deterministic contract settlement arithmetic is not legal settlement authority or trade execution.",
