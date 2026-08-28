@@ -3,7 +3,7 @@
 import argparse
 import json
 from pathlib import Path
-from typing import Any, Dict, Optional, Sequence
+from typing import Any, Dict, Mapping, Optional, Sequence
 
 from .artifacts import (
     PricingArtifactError,
@@ -37,6 +37,15 @@ from .policy_lab import (
     price_admitted_exposure,
 )
 from .scenario_risk import summarize_policy_contract_distribution
+from .scenario_set import (
+    SCENARIO_SET_SCHEMA,
+    ScenarioSet,
+    ScenarioSetError,
+    build_market_price_scenarios,
+    load_scenario_set,
+    validate_scenario_set,
+    write_scenario_set,
+)
 
 
 def _emit(payload: Any, as_json: bool) -> None:
@@ -56,6 +65,26 @@ def _write_json(payload: Dict[str, Any], path: str) -> Path:
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     return target
+
+
+def _read_json(path: str) -> Any:
+    return json.loads(Path(path).read_text(encoding="utf-8"))
+
+
+def _read_json_array(path: str, context: str) -> Sequence[float]:
+    payload = _read_json(path)
+    if not isinstance(payload, list):
+        raise ValueError(f"{context} must contain a JSON array")
+    return payload
+
+
+def _read_json_object(path: Optional[str], context: str) -> Dict[str, Any]:
+    if path is None:
+        return {}
+    payload = _read_json(path)
+    if not isinstance(payload, Mapping):
+        raise ValueError(f"{context} must contain a JSON object")
+    return dict(payload)
 
 
 def _add_policy_selector(parser: argparse.ArgumentParser) -> None:
@@ -102,6 +131,15 @@ def _add_contract_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--cap-price", type=float)
 
 
+def _add_scenario_provenance_arguments(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("--market-source", default="user-supplied-json")
+    parser.add_argument("--observed-at")
+    parser.add_argument("--model-id", default="empirical-scenarios")
+    parser.add_argument("--model-parameters", help="Path to a JSON object of model parameters")
+    parser.add_argument("--source-hash")
+    parser.add_argument("--seed", type=int)
+
+
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="spk-derivatives",
@@ -121,7 +159,23 @@ def _build_parser() -> argparse.ArgumentParser:
     preflight.add_argument("--result-package")
     preflight.add_argument("--comparison-package")
     preflight.add_argument("--market-risk-package")
+    preflight.add_argument("--scenario-set")
     preflight.add_argument("--json", action="store_true", dest="as_json")
+
+    scenario_build = subparsers.add_parser(
+        "scenario-build",
+        help="Build a deterministic market-price scenario-set manifest",
+    )
+    scenario_build.add_argument("--prices", required=True, help="Path to a JSON array of prices")
+    scenario_build.add_argument("--price-unit", required=True)
+    scenario_build.add_argument("--source", required=True)
+    scenario_build.add_argument("--observed-at", required=True)
+    scenario_build.add_argument("--model-id", required=True)
+    scenario_build.add_argument("--model-parameters", help="Path to a JSON object")
+    scenario_build.add_argument("--source-hash")
+    scenario_build.add_argument("--seed", type=int)
+    scenario_build.add_argument("--out", required=True)
+    scenario_build.add_argument("--json", action="store_true", dest="as_json")
 
     check = subparsers.add_parser(
         "policy-check",
@@ -165,18 +219,22 @@ def _build_parser() -> argparse.ArgumentParser:
 
     market_risk = subparsers.add_parser(
         "market-risk",
-        help="Apply explicit market-price scenarios and contract terms to one admitted quantity",
+        help="Apply an identity-bound market scenario set and contract to one admitted quantity",
     )
     market_risk.add_argument("package", help="Path to Policy Lab claim-assessment JSON")
     _add_policy_selector(market_risk)
-    market_risk.add_argument(
+    scenario_source = market_risk.add_mutually_exclusive_group(required=True)
+    scenario_source.add_argument(
+        "--scenario-set",
+        help="Path to a deterministic SPK scenario-set manifest",
+    )
+    scenario_source.add_argument(
         "--prices",
-        required=True,
-        help="Path to a JSON array of market-price scenarios",
+        help="Path to a raw JSON array; SPK will bind it into a scenario-set manifest",
     )
     _add_contract_arguments(market_risk)
-    market_risk.add_argument("--market-source", default="user-supplied-json")
-    market_risk.add_argument("--model-id", default="empirical-scenarios")
+    _add_scenario_provenance_arguments(market_risk)
+    market_risk.add_argument("--scenario-out", help="Write the normalized scenario manifest")
     market_risk.add_argument("--package-out")
     market_risk.add_argument("--json", action="store_true", dest="as_json")
 
@@ -201,6 +259,13 @@ def _build_parser() -> argparse.ArgumentParser:
     verify_market.add_argument("package")
     verify_market.add_argument("--json", action="store_true", dest="as_json")
 
+    verify_scenario = subparsers.add_parser(
+        "verify-scenario-set",
+        help="Verify a deterministic SPK scenario-set manifest and identity",
+    )
+    verify_scenario.add_argument("package")
+    verify_scenario.add_argument("--json", action="store_true", dest="as_json")
+
     return parser
 
 
@@ -211,13 +276,14 @@ def _runtime_info() -> Dict[str, Any]:
         "name": "spk-derivatives",
         "version": __version__,
         "software_status": "research-beta",
-        "pricing": "binomial, monte-carlo, Black-76, Bachelier, OU scenarios, Greeks",
+        "pricing": "binomial, monte-carlo, Black-76, Bachelier, OU/spike scenarios, Greeks",
         "energy": "solar, wind, hydro",
         "policy_lab_schema": POLICY_LAB_SCHEMA,
         "policy_lab_profile": POLICY_LAB_PROFILE,
         "pricing_result_schema": SPK_PRICING_PACKAGE_SCHEMA,
         "policy_comparison_schema": SPK_POLICY_COMPARISON_SCHEMA,
         "market_risk_schema": SPK_MARKET_RISK_SCHEMA,
+        "scenario_set_schema": SCENARIO_SET_SCHEMA,
         "policy_sensitivity": "compare and price admitted governance outcomes under common assumptions",
         "market_model_sensitivity": "compare price-model consequences under fixed admitted quantity and contract terms",
     }
@@ -238,6 +304,38 @@ def _pricing_kwargs(args: argparse.Namespace) -> Dict[str, Any]:
     }
 
 
+def _scenario_from_market_args(args: argparse.Namespace, contract: EnergyContract) -> ScenarioSet:
+    if args.scenario_set:
+        scenario_set = load_scenario_set(args.scenario_set)
+        if scenario_set.normalized_kind != "market-price":
+            raise ScenarioSetError("market-risk requires a market-price scenario set")
+    else:
+        if not args.observed_at:
+            raise ScenarioSetError(
+                "raw --prices require --observed-at so scenario provenance is explicit"
+            )
+        prices = _read_json_array(args.prices, "market-risk --prices")
+        scenario_set = build_market_price_scenarios(
+            prices,
+            price_unit=contract.price_unit,
+            source=args.market_source,
+            source_hash=args.source_hash,
+            observed_at_utc=args.observed_at,
+            model_id=args.model_id,
+            model_parameters=_read_json_object(
+                args.model_parameters, "market-risk --model-parameters"
+            ),
+            seed=args.seed,
+        )
+
+    if scenario_set.price_unit != contract.price_unit:
+        raise ScenarioSetError(
+            f"scenario price_unit {scenario_set.price_unit!r} does not match "
+            f"contract price_unit {contract.price_unit!r}"
+        )
+    return scenario_set
+
+
 def main(argv: Optional[Sequence[str]] = None) -> int:
     parser = _build_parser()
     args = parser.parse_args(argv)
@@ -247,6 +345,43 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         return 0
 
     try:
+        if args.command == "scenario-build":
+            prices = _read_json_array(args.prices, "scenario-build --prices")
+            scenario_set = build_market_price_scenarios(
+                prices,
+                price_unit=args.price_unit,
+                source=args.source,
+                source_hash=args.source_hash,
+                observed_at_utc=args.observed_at,
+                model_id=args.model_id,
+                model_parameters=_read_json_object(
+                    args.model_parameters, "scenario-build --model-parameters"
+                ),
+                seed=args.seed,
+            )
+            target = write_scenario_set(scenario_set, args.out)
+            output = scenario_set.to_dict()
+            output["written_to"] = str(target)
+            _emit(output, args.as_json)
+            return 0
+
+        if args.command == "verify-scenario-set":
+            scenario_set = load_scenario_set(args.package)
+            validate_scenario_set(scenario_set)
+            _emit(
+                {
+                    "status": "ok",
+                    "schema": SCENARIO_SET_SCHEMA,
+                    "scenario_set_id": scenario_set.scenario_set_id,
+                    "kind": scenario_set.normalized_kind,
+                    "scenario_count": len(scenario_set.market_prices),
+                    "price_unit": scenario_set.price_unit,
+                    "model_id": scenario_set.model_id,
+                },
+                args.as_json,
+            )
+            return 0
+
         if args.command == "verify-result":
             package = load_pricing_result_package(args.package)
             validate_pricing_result_package(package)
@@ -292,6 +427,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
                     "decision_id": package["authority"]["decision_id"],
                     "contract_type": package["contract"]["contract_type"],
                     "scenarios": package["risk"]["scenarios"],
+                    "scenario_set_id": package["market"]["input"].get("scenario_set_id"),
                 },
                 args.as_json,
             )
@@ -336,6 +472,17 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
                     "status": "verified",
                     "artifact_id": market_package["artifact_id"],
                     "package_content_id": market_package["package_content_id"],
+                    "scenario_set_id": market_package["market"]["input"].get(
+                        "scenario_set_id"
+                    ),
+                }
+            if args.scenario_set:
+                scenario_set = load_scenario_set(args.scenario_set)
+                payload["scenario_set"] = {
+                    "status": "verified",
+                    "scenario_set_id": scenario_set.scenario_set_id,
+                    "kind": scenario_set.normalized_kind,
+                    "scenario_count": len(scenario_set.market_prices),
                 }
             _emit(payload, args.as_json)
             return 0
@@ -366,9 +513,6 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             return 0
 
         if args.command == "market-risk":
-            price_payload = json.loads(Path(args.prices).read_text(encoding="utf-8"))
-            if not isinstance(price_payload, list):
-                raise ValueError("market-risk --prices must contain a JSON array")
             contract = EnergyContract(
                 args.contract_type,
                 currency=args.currency,
@@ -377,31 +521,45 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
                 floor_price=args.floor_price,
                 cap_price=args.cap_price,
             )
+            scenario_set = _scenario_from_market_args(args, contract)
+            if args.scenario_out:
+                write_scenario_set(scenario_set, args.scenario_out)
+
             distribution = summarize_policy_contract_distribution(
                 exposure,
-                price_payload,
+                scenario_set.market_prices,
                 contract,
             )
             output = distribution.to_dict()
+            output["scenario_set_id"] = scenario_set.scenario_set_id
+
             if args.package_out:
                 market_package = build_market_risk_package(
                     exposure,
                     distribution,
                     contract,
                     market_input={
-                        "kind": "user-supplied-price-scenarios",
-                        "source": args.market_source,
-                        "price_unit": contract.price_unit,
+                        "kind": "scenario-set",
+                        "schema": SCENARIO_SET_SCHEMA,
+                        "scenario_set_id": scenario_set.scenario_set_id,
+                        "source": scenario_set.source,
+                        "source_hash": scenario_set.source_hash,
+                        "observed_at_utc": scenario_set.observed_at_utc,
+                        "price_unit": scenario_set.price_unit,
                     },
                     scenario_model={
-                        "id": args.model_id,
-                        "scenario_count": distribution.distribution.scenarios,
+                        "id": scenario_set.model_id,
+                        "parameters": dict(scenario_set.model_parameters),
+                        "seed": scenario_set.seed,
+                        "scenario_count": len(scenario_set.market_prices),
                     },
                 )
                 target = write_market_risk_package(market_package, args.package_out)
                 output["market_risk_package"] = str(target)
                 output["artifact_id"] = market_package["artifact_id"]
-                output["market_risk_package_content_id"] = market_package["package_content_id"]
+                output["market_risk_package_content_id"] = market_package[
+                    "package_content_id"
+                ]
             _emit(output, args.as_json)
             return 0
 
@@ -439,6 +597,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         PricingArtifactError,
         PolicyComparisonError,
         MarketRiskArtifactError,
+        ScenarioSetError,
         ValueError,
         OSError,
         json.JSONDecodeError,

@@ -7,10 +7,12 @@ identity so downstream artifacts can refer to one exact scenario set.
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
+import json
+from dataclasses import dataclass
 import math
+from pathlib import Path
 import re
-from typing import Any, Dict, Iterable, Mapping, Optional, Tuple
+from typing import Any, Dict, Iterable, Mapping, Optional, Tuple, Union
 
 from .artifacts import sha256_hex
 
@@ -21,6 +23,9 @@ _SHA256 = re.compile(r"^[a-f0-9]{64}$")
 
 class ScenarioSetError(ValueError):
     """Raised when a scenario manifest is malformed or inconsistent."""
+
+
+ScenarioSetSource = Union["ScenarioSet", Mapping[str, Any], str, Path]
 
 
 def _finite_tuple(values: Iterable[float], name: str) -> Tuple[float, ...]:
@@ -73,7 +78,9 @@ class ScenarioSet:
                 raise ScenarioSetError("market-price scenario sets cannot carry quantity scenarios")
         else:
             if self.quantities is None or not self.quantity_unit or not self.quantity_unit.strip():
-                raise ScenarioSetError("joint-volume-price scenario sets require quantities and quantity_unit")
+                raise ScenarioSetError(
+                    "joint-volume-price scenario sets require quantities and quantity_unit"
+                )
             quantities = _finite_tuple(self.quantities, "quantities")
             if len(quantities) != len(prices):
                 raise ScenarioSetError("quantities and market_prices must have equal length")
@@ -162,3 +169,100 @@ def build_joint_scenarios(
         source_hash=source_hash,
         seed=seed,
     )
+
+
+def load_scenario_set(source: ScenarioSetSource, *, verify_identity: bool = True) -> ScenarioSet:
+    """Load and validate a scenario manifest from an object, mapping, or JSON path."""
+    if isinstance(source, ScenarioSet):
+        scenario_set = source
+        if verify_identity:
+            validate_scenario_set(scenario_set)
+        return scenario_set
+
+    if isinstance(source, Mapping):
+        payload = dict(source)
+    else:
+        path = Path(source)
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+        except OSError as exc:
+            raise ScenarioSetError(f"Could not read scenario-set package: {path}") from exc
+        except json.JSONDecodeError as exc:
+            raise ScenarioSetError(f"Scenario-set package is not valid JSON: {path}") from exc
+
+    if not isinstance(payload, dict):
+        raise ScenarioSetError("Scenario-set package must be a JSON object")
+    if payload.get("schema") != SCENARIO_SET_SCHEMA:
+        raise ScenarioSetError(f"Unsupported scenario-set schema: {payload.get('schema')!r}")
+
+    prices_payload = payload.get("market_prices")
+    if not isinstance(prices_payload, list):
+        raise ScenarioSetError("market_prices must be a JSON array")
+    quantities_payload = payload.get("quantities")
+    if quantities_payload is not None and not isinstance(quantities_payload, list):
+        raise ScenarioSetError("quantities must be a JSON array or null")
+
+    scenario_set = ScenarioSet(
+        kind=payload.get("kind", ""),
+        price_unit=payload.get("price_unit", ""),
+        market_prices=tuple(prices_payload),
+        quantity_unit=payload.get("quantity_unit"),
+        quantities=(
+            tuple(quantities_payload)
+            if quantities_payload is not None
+            else None
+        ),
+        source=payload.get("source", ""),
+        source_hash=payload.get("source_hash"),
+        observed_at_utc=payload.get("observed_at_utc", ""),
+        model_id=payload.get("model_id", ""),
+        model_parameters=payload.get("model_parameters", {}),
+        seed=payload.get("seed"),
+    )
+
+    expected_count = len(scenario_set.market_prices)
+    scenario_count = payload.get("scenario_count")
+    if (
+        isinstance(scenario_count, bool)
+        or not isinstance(scenario_count, int)
+        or scenario_count != expected_count
+    ):
+        raise ScenarioSetError("scenario_count does not match scenario values")
+
+    scenario_set_id = payload.get("scenario_set_id")
+    if not isinstance(scenario_set_id, str) or not _SHA256.fullmatch(scenario_set_id):
+        raise ScenarioSetError("scenario_set_id must be lowercase SHA-256 hex")
+    if verify_identity and scenario_set_id != scenario_set.scenario_set_id:
+        raise ScenarioSetError("scenario_set_id does not match scenario content")
+    return scenario_set
+
+
+def validate_scenario_set(source: ScenarioSetSource, *, verify_identity: bool = True) -> bool:
+    """Validate structural invariants and deterministic scenario identity."""
+    if isinstance(source, ScenarioSet):
+        identity = source.scenario_set_id
+        if not _SHA256.fullmatch(identity):
+            raise ScenarioSetError("scenario_set_id must be lowercase SHA-256 hex")
+        return True
+    load_scenario_set(source, verify_identity=verify_identity)
+    return True
+
+
+def write_scenario_set(source: ScenarioSetSource, path: Union[str, Path]) -> Path:
+    """Write one canonical JSON manifest after validation."""
+    scenario_set = load_scenario_set(source) if not isinstance(source, ScenarioSet) else source
+    validate_scenario_set(scenario_set)
+    target = Path(path)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(
+        json.dumps(
+            scenario_set.to_dict(),
+            indent=2,
+            sort_keys=True,
+            ensure_ascii=False,
+            allow_nan=False,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    return target

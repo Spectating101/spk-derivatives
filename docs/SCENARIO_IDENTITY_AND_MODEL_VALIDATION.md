@@ -20,6 +20,27 @@ A joint scenario set preserves the pairing between realized quantity and market 
 
 Scenario identity does not make a scenario authoritative or probable. It establishes only which quantitative input set was used.
 
+### Scenario manifests are now operational inputs
+
+Scenario identity is no longer only an in-memory research helper.
+
+The CLI can:
+
+```text
+spk-derivatives scenario-build ...
+spk-derivatives verify-scenario-set ...
+spk-derivatives preflight --scenario-set ...
+spk-derivatives market-risk --scenario-set ...
+```
+
+`scenario-build` turns a declared market-price array plus source, observation time, price unit, model identifier, optional model parameters/source hash, and optional seed into a portable manifest. `verify-scenario-set` recomputes the identity and rejects count or content mutation.
+
+When `market-risk` consumes a scenario manifest, the resulting `spk_derivatives.market_risk_package.v0.1` binds the exact `scenario_set_id`, scenario schema, source metadata, observation time, price unit, model declaration, parameters, seed, and scenario count into its own deterministic identity.
+
+Raw `market-risk --prices` input remains available as a convenience path, but it must declare an observation time and is normalized into a scenario manifest before risk analysis. This prevents an anonymous JSON array from becoming an untraceable market input.
+
+The binding proves **which quantitative scenarios were used**. It does not prove that the scenarios are statistically representative, risk-neutral, forecast-quality, regulatory, or otherwise authoritative.
+
 ## Provenance-bound forward option values
 
 `spk_derivatives.forward_pricing.price_forward_curve_option` prices Black-76 or Bachelier options from a `ForwardCurve` while retaining:
@@ -68,8 +89,9 @@ SPK's intended validation hierarchy is:
 1. **formula identities and numerical bounds** — parity, intrinsic bounds, deterministic limiting cases;
 2. **analytic/simulation consistency** — seeded Monte Carlo against known formula benchmarks;
 3. **scenario reproducibility** — exact scenario-set identity and source/model declarations;
-4. **historical replay** — transparent empirical diagnostics on declared data;
-5. **market-specific model validation** — a future case-specific layer requiring real market data and documented calibration design.
+4. **artifact binding** — downstream market-risk artifacts name the exact scenario-set identity they consumed;
+5. **historical replay** — transparent empirical diagnostics on declared data;
+6. **market-specific model validation** — a future case-specific layer requiring real market data and documented calibration design.
 
 Passing a lower layer does not imply passing a higher layer.
 

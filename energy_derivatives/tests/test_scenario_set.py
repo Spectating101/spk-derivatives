@@ -1,9 +1,14 @@
+import json
+
 import pytest
 
 from spk_derivatives.scenario_set import (
     ScenarioSetError,
     build_joint_scenarios,
     build_market_price_scenarios,
+    load_scenario_set,
+    validate_scenario_set,
+    write_scenario_set,
 )
 
 
@@ -54,3 +59,55 @@ def test_joint_manifest_rejects_unpaired_scenarios():
             observed_at_utc="2026-08-29T00:00:00Z",
             model_id="bad-pairs",
         )
+
+
+def test_scenario_manifest_round_trip_verifies_identity(tmp_path):
+    manifest = build_market_price_scenarios(
+        [-20.0, 15.0, 90.0],
+        price_unit="USD/MWh",
+        source="market fixture",
+        observed_at_utc="2026-08-29T01:00:00Z",
+        model_id="spike-replay",
+        model_parameters={"regime": "test"},
+        source_hash="a" * 64,
+        seed=17,
+    )
+    path = tmp_path / "scenario-set.json"
+
+    assert write_scenario_set(manifest, path) == path
+    loaded = load_scenario_set(path)
+
+    assert loaded == manifest
+    assert validate_scenario_set(path) is True
+    assert loaded.scenario_set_id == manifest.scenario_set_id
+
+
+def test_scenario_manifest_rejects_tampered_values(tmp_path):
+    manifest = build_market_price_scenarios(
+        [10.0, 20.0, 30.0],
+        price_unit="USD/MWh",
+        source="fixture",
+        observed_at_utc="2026-08-29T01:00:00Z",
+        model_id="historical-replay",
+    )
+    payload = manifest.to_dict()
+    payload["market_prices"][1] = 999.0
+    path = tmp_path / "tampered.json"
+    path.write_text(json.dumps(payload), encoding="utf-8")
+
+    with pytest.raises(ScenarioSetError, match="does not match scenario content"):
+        load_scenario_set(path)
+
+
+def test_scenario_manifest_rejects_count_mismatch():
+    manifest = build_market_price_scenarios(
+        [10.0, 20.0],
+        price_unit="USD/MWh",
+        source="fixture",
+        observed_at_utc="2026-08-29T01:00:00Z",
+        model_id="historical-replay",
+    ).to_dict()
+    manifest["scenario_count"] = 3
+
+    with pytest.raises(ScenarioSetError, match="scenario_count"):
+        load_scenario_set(manifest)

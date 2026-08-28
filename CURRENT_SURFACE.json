@@ -23,6 +23,7 @@
     ],
     "market_inputs": [
       "provenance-bearing-forward-curves",
+      "identity-bound-scenario-sets",
       "historical-normal-volatility",
       "historical-lognormal-volatility",
       "diagnostic-ou-calibration"
@@ -49,7 +50,8 @@
     "market_risk_schema_path": "protocol/schema/market-risk-package.v0.1.schema.json",
     "scenario_set_schema_path": "protocol/schema/scenario-set.v0.1.schema.json",
     "identity_algorithm": "SHA-256",
-    "canonicalization": "python-json-sort-keys-compact-utf8-v0.1"
+    "canonicalization": "python-json-sort-keys-compact-utf8-v0.1",
+    "scenario_binding": "market-risk artifacts bind the deterministic scenario_set_id used for valuation"
   },
   "policy_sensitivity": {
     "principle": "governance policy is an explicit analytical dimension, never a hidden default",
@@ -67,7 +69,7 @@
     "dependence": "paired scenarios preserve empirical quantity-price dependence and report correlation when defined"
   },
   "reproducibility": {
-    "scenario_sets": "market-price and joint volume-price scenario values can be bound to deterministic manifests with source/model/seed declarations",
+    "scenario_sets": "market-price and joint volume-price scenario values can be bound to deterministic manifests with source/model/seed declarations; CLI workflows can build, verify and consume those identities",
     "analytic_monte_carlo": "Black-76 and Bachelier analytic values can be checked against seeded Monte Carlo estimators under matching assumptions",
     "historical_replay": "MAE, RMSE, bias and correlation diagnostics are available for aligned observed/modeled series",
     "interpretation": "implementation consistency and replay diagnostics do not establish empirical model correctness"
@@ -80,6 +82,8 @@
   "canonical_commands": [
     "spk-derivatives info",
     "spk-derivatives preflight",
+    "spk-derivatives scenario-build",
+    "spk-derivatives verify-scenario-set",
     "spk-derivatives policy-check",
     "spk-derivatives policy-compare",
     "spk-derivatives policy-price",
@@ -106,6 +110,7 @@
     "Historical calibration does not automatically establish a risk-neutral pricing measure.",
     "Analytic-versus-Monte-Carlo agreement validates implementation consistency under common assumptions, not market-model correctness.",
     "A deterministic scenario identity establishes which scenarios were used, not their probability or authority.",
+    "Binding a scenario_set_id into a market-risk artifact proves input identity, not market truth or forecast quality.",
     "Mean-reverting jump/spike scenarios are scenario generators, not automatically a risk-neutral pricing measure.",
     "Explicit unit conversion does not establish semantic equivalence between claims, certificates, credits, and physical energy.",
     "Joint realized-quantity scenarios cannot expand Policy Lab-admitted authority.",
