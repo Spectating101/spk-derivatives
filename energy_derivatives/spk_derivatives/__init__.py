@@ -4,7 +4,8 @@ SPK Derivatives: Energy Derivatives Pricing Framework
 
 A quantitative framework for pricing energy derivatives (solar, wind, hydro)
 using binomial trees, Monte-Carlo simulation, risk-neutral valuation,
-policy-admitted exposure quantities, and deterministic research artifacts.
+policy-admitted exposure quantities, deterministic research artifacts, and
+explicit policy-sensitivity analysis.
 """
 
 __version__ = "0.5.0"
@@ -25,6 +26,7 @@ from . import context_translator
 from . import results_manager
 from . import policy_lab
 from . import artifacts
+from . import policy_analysis
 
 # Optional: plots (requires matplotlib)
 try:
@@ -122,6 +124,18 @@ from .artifacts import (
     write_pricing_result_package,
 )
 
+# Policy sensitivity and governance-comparison artifacts
+from .policy_analysis import (
+    SPK_POLICY_COMPARISON_SCHEMA,
+    PolicyComparisonError,
+    PolicyOutcome,
+    PolicyPricedOutcome,
+    build_policy_comparison_package,
+    compare_policy_outcomes,
+    price_admitted_policies,
+    validate_policy_comparison_package,
+)
+
 __all__ = [
     # Modules
     "binomial",
@@ -140,6 +154,7 @@ __all__ = [
     "analysis",
     "policy_lab",
     "artifacts",
+    "policy_analysis",
 
     # Convenience functions
     "load_solar_parameters",
@@ -214,4 +229,14 @@ __all__ = [
     "load_pricing_result_package",
     "validate_pricing_result_package",
     "write_pricing_result_package",
+
+    # Policy sensitivity protocol
+    "SPK_POLICY_COMPARISON_SCHEMA",
+    "PolicyComparisonError",
+    "PolicyOutcome",
+    "PolicyPricedOutcome",
+    "compare_policy_outcomes",
+    "price_admitted_policies",
+    "build_policy_comparison_package",
+    "validate_policy_comparison_package",
 ]
