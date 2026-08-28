@@ -15,7 +15,8 @@
   "artifact_protocol": {
     "pricing_result_schema": "spk_derivatives.pricing_result_package.v0.1",
     "policy_comparison_schema": "spk_derivatives.policy_comparison_package.v0.1",
-    "pricing_schema_path": "protocol/schema/pricing-result-package.v0.1.schema.json",
+    "schema_path": "protocol/schema/pricing-result-package.v0.1.schema.json",
+    "comparison_schema_path": "protocol/schema/policy-comparison-package.v0.1.schema.json",
     "identity_algorithm": "SHA-256",
     "canonicalization": "python-json-sort-keys-compact-utf8-v0.1"
   },
