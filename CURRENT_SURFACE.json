@@ -10,29 +10,40 @@
     "claim_assessment_schema": "policylab.claim_assessment_package.v0.1",
     "profile_id": "policylab.energy_linked_claim.v0",
     "responsibility": "evidence, admissibility, policy constraints, governance",
-    "downstream_responsibility": "pricing, risk, scenario and model consequences"
+    "downstream_responsibility": "pricing, risk, scenario, policy-sensitivity and model consequences"
   },
   "artifact_protocol": {
     "pricing_result_schema": "spk_derivatives.pricing_result_package.v0.1",
-    "schema_path": "protocol/schema/pricing-result-package.v0.1.schema.json",
+    "policy_comparison_schema": "spk_derivatives.policy_comparison_package.v0.1",
+    "pricing_schema_path": "protocol/schema/pricing-result-package.v0.1.schema.json",
     "identity_algorithm": "SHA-256",
     "canonicalization": "python-json-sort-keys-compact-utf8-v0.1"
+  },
+  "policy_sensitivity": {
+    "principle": "governance policy is an explicit analytical dimension, never a hidden default",
+    "blocked_outcomes": "retained for comparison but never priced",
+    "multi_policy_pricing": "all admitted policies can be valued under one common market/model assumption set"
   },
   "canonical_commands": [
     "spk-derivatives info",
     "spk-derivatives preflight",
     "spk-derivatives policy-check",
+    "spk-derivatives policy-compare",
     "spk-derivatives policy-price",
-    "spk-derivatives verify-result"
+    "spk-derivatives policy-sweep",
+    "spk-derivatives verify-result",
+    "spk-derivatives verify-comparison"
   ],
   "validation": {
     "python_tests": "energy_derivatives/tests",
     "solidity_tests": ".github/workflows/solidity-tests.yml",
-    "solidity_security": ".github/workflows/solidity-security.yml"
+    "solidity_security": ".github/workflows/solidity-security.yml",
+    "trust_boundary": "docs/TRUST_BOUNDARY_AND_THREAT_MODEL.md"
   },
   "non_claims": [
     "SPK Derivatives is not a policy authority.",
     "SPK Derivatives does not upgrade Policy Lab evidence assurance.",
+    "Policy sensitivity is not the same thing as market sensitivity or evidence truth.",
     "Model output is not settlement, legal, regulatory, liquidity, or execution authority.",
     "The repository remains research/beta software rather than a production trading system."
   ]
