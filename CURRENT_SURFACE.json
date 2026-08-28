@@ -63,8 +63,10 @@
     "spk-derivatives policy-compare",
     "spk-derivatives policy-price",
     "spk-derivatives policy-sweep",
+    "spk-derivatives market-risk",
     "spk-derivatives verify-result",
-    "spk-derivatives verify-comparison"
+    "spk-derivatives verify-comparison",
+    "spk-derivatives verify-market-risk"
   ],
   "validation": {
     "python_tests": "energy_derivatives/tests",
