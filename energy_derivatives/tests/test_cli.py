@@ -40,6 +40,7 @@ def test_preflight_reports_runtime_contracts(capsys):
     assert payload["policy_lab_profile"] == "policylab.energy_linked_claim.v0"
     assert payload["pricing_result_schema"] == "spk_derivatives.pricing_result_package.v0.1"
     assert payload["policy_comparison_schema"] == "spk_derivatives.policy_comparison_package.v0.1"
+    assert payload["market_risk_schema"] == "spk_derivatives.market_risk_package.v0.1"
 
 
 def test_cli_emits_and_verifies_pricing_package(policy_package, tmp_path, capsys):
@@ -160,3 +161,40 @@ def test_preflight_can_validate_comparison_package(policy_package, tmp_path, cap
     ]) == 0
     payload = json.loads(capsys.readouterr().out)
     assert payload["comparison_package"]["status"] == "verified"
+
+
+def test_cli_market_risk_emits_and_verifies_artifact(policy_package, tmp_path, capsys):
+    source = _write_policy_package(policy_package, tmp_path)
+    prices = tmp_path / "prices.json"
+    prices.write_text(json.dumps([0.05, 0.08, 0.12, 0.15]), encoding="utf-8")
+    target = tmp_path / "market-risk.json"
+
+    assert main([
+        "market-risk",
+        str(source),
+        "--prices", str(prices),
+        "--contract-type", "floor",
+        "--currency", "USD",
+        "--floor-price", "0.10",
+        "--market-source", "unit-test",
+        "--model-id", "historical-replay",
+        "--package-out", str(target),
+        "--json",
+    ]) == 0
+    output = json.loads(capsys.readouterr().out)
+    assert target.exists()
+    assert len(output["artifact_id"]) == 64
+    assert output["distribution"]["quantity"] == 1000.0
+
+    assert main(["verify-market-risk", str(target), "--json"]) == 0
+    verified = json.loads(capsys.readouterr().out)
+    assert verified["status"] == "ok"
+    assert verified["artifact_id"] == output["artifact_id"]
+
+    assert main([
+        "preflight",
+        "--market-risk-package", str(target),
+        "--json",
+    ]) == 0
+    preflight = json.loads(capsys.readouterr().out)
+    assert preflight["market_risk_package"]["status"] == "verified"
