@@ -10,7 +10,7 @@
     "claim_assessment_schema": "policylab.claim_assessment_package.v0.1",
     "profile_id": "policylab.energy_linked_claim.v0",
     "responsibility": "evidence, admissibility, policy constraints, governance",
-    "downstream_responsibility": "pricing, risk, scenario, policy-sensitivity and model consequences"
+    "downstream_responsibility": "pricing, risk, scenario, policy-sensitivity, market-model sensitivity and quantitative consequences"
   },
   "market_model_boundary": {
     "principle": "physical quantity and market price are separate analytical processes",
@@ -20,6 +20,13 @@
       "bachelier-normal-forward-option",
       "ornstein-uhlenbeck-terminal-scenarios"
     ],
+    "market_inputs": [
+      "provenance-bearing-forward-curves",
+      "historical-normal-volatility",
+      "historical-lognormal-volatility",
+      "diagnostic-ou-calibration"
+    ],
+    "forward_curve_extrapolation": "rejected by default; only interpolation inside observed maturities is supported",
     "contract_settlement": [
       "merchant",
       "fixed-price",
@@ -27,13 +34,15 @@
       "cap",
       "collar"
     ],
-    "negative_price_support": "Bachelier and Ornstein-Uhlenbeck surfaces permit negative market prices; Black-76 explicitly rejects non-positive forwards"
+    "negative_price_support": "Forward curves, Bachelier and Ornstein-Uhlenbeck surfaces permit negative market prices; Black-76 explicitly rejects non-positive forwards"
   },
   "artifact_protocol": {
     "pricing_result_schema": "spk_derivatives.pricing_result_package.v0.1",
     "policy_comparison_schema": "spk_derivatives.policy_comparison_package.v0.1",
+    "market_risk_schema": "spk_derivatives.market_risk_package.v0.1",
     "schema_path": "protocol/schema/pricing-result-package.v0.1.schema.json",
     "comparison_schema_path": "protocol/schema/policy-comparison-package.v0.1.schema.json",
+    "market_risk_schema_path": "protocol/schema/market-risk-package.v0.1.schema.json",
     "identity_algorithm": "SHA-256",
     "canonicalization": "python-json-sort-keys-compact-utf8-v0.1"
   },
@@ -41,6 +50,11 @@
     "principle": "governance policy is an explicit analytical dimension, never a hidden default",
     "blocked_outcomes": "retained for comparison but never priced",
     "multi_policy_pricing": "all admitted policies can be valued under one common market/model assumption set"
+  },
+  "model_sensitivity": {
+    "principle": "market-model choice is an explicit analytical dimension distinct from evidence and policy",
+    "comparison": "multiple named market-price scenario sets can be compared under one fixed admitted quantity and contract",
+    "risk_summary": "mean, standard deviation, 5th/50th/95th percentiles, negative-value probability, and protection value relative to merchant exposure"
   },
   "canonical_commands": [
     "spk-derivatives info",
@@ -57,12 +71,14 @@
     "solidity_tests": ".github/workflows/solidity-tests.yml",
     "solidity_security": ".github/workflows/solidity-security.yml",
     "trust_boundary": "docs/TRUST_BOUNDARY_AND_THREAT_MODEL.md",
-    "market_model_architecture": "docs/MARKET_MODEL_ARCHITECTURE.md"
+    "market_model_architecture": "docs/MARKET_MODEL_ARCHITECTURE.md",
+    "market_calibration_and_risk": "docs/MARKET_CALIBRATION_AND_RISK.md"
   },
   "non_claims": [
     "SPK Derivatives is not a policy authority.",
     "SPK Derivatives does not upgrade Policy Lab evidence assurance.",
-    "Policy sensitivity is not the same thing as market sensitivity or evidence truth.",
+    "Policy sensitivity is not the same thing as market/model sensitivity or evidence truth.",
+    "Historical calibration does not automatically establish a risk-neutral pricing measure.",
     "Model output is not settlement, legal, regulatory, liquidity, or execution authority.",
     "Ornstein-Uhlenbeck scenarios are not automatically a risk-neutral pricing measure.",
     "Deterministic contract settlement arithmetic is not legal settlement authority or trade execution.",
