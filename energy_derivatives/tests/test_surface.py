@@ -25,7 +25,11 @@ def test_current_surface_matches_runtime_contracts():
     assert "bachelier-normal-forward-option" in surface["market_model_boundary"]["market_models"]
     assert "provenance-bearing-forward-curves" in surface["market_model_boundary"]["market_inputs"]
     assert "fixed-price" in surface["market_model_boundary"]["contract_settlement"]
+    assert "explicit conversion objects" in surface["market_model_boundary"]["unit_conversion"]
     assert "comparison" in surface["model_sensitivity"]
+    assert "authority_cap" in surface["joint_volume_price_risk"]
+    assert "spk-derivatives market-risk" in surface["canonical_commands"]
+    assert "spk-derivatives verify-market-risk" in surface["canonical_commands"]
 
 
 def test_current_surface_paths_exist():
