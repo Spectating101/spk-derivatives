@@ -3,7 +3,8 @@ SPK Derivatives: Energy Derivatives Pricing Framework
 ======================================================
 
 A quantitative framework for pricing energy derivatives (solar, wind, hydro)
-using binomial trees, Monte-Carlo simulation, and risk-neutral valuation.
+using binomial trees, Monte-Carlo simulation, risk-neutral valuation, and
+policy-admitted exposure quantities.
 
 Features:
 ---------
@@ -14,36 +15,37 @@ Features:
 - NASA POWER API integration for global data
 - Geographic presets: 10+ world locations optimized for each energy type
 - Professional workflow tools (validation, comparison, batch pricing)
-- Context translation (raw data → kWh → dollar values)
+- Context translation (raw data -> kWh -> dollar values)
+- Policy Lab claim-assessment bridge with provenance-preserving pricing
 
 Author: SPK Derivatives Team
-Year: 2025
 """
 
-__version__ = "0.4.0"
+__version__ = "0.5.0"
 __author__ = "SPK Derivatives Team"
 
-# Import modules
+# Core modules
 from . import binomial
 from . import monte_carlo
 from . import sensitivities
 from . import data_loader
 from . import data_loader_nasa
-from . import data_loader_base  # Multi-energy support
-from . import data_loader_wind  # Multi-energy support
-from . import data_loader_hydro  # Multi-energy support
-from . import location_guide  # Geographic presets
+from . import data_loader_base
+from . import data_loader_wind
+from . import data_loader_hydro
+from . import location_guide
 from . import live_data
 from . import context_translator
 from . import results_manager
+from . import policy_lab
 
 # Optional: plots (requires matplotlib)
 try:
     from . import plots
 except ImportError:
-    plots = None  # matplotlib not installed
+    plots = None
 
-# Optional: analysis (sensitivity/stress/excel - openpyxl for excel)
+# Optional: analysis (openpyxl is only needed for Excel export)
 try:
     from . import analysis
     from .analysis import (
@@ -54,26 +56,28 @@ try:
         export_to_excel,
         run_full_analysis,
         scenario_comparison,
-        break_even_analysis,
         portfolio_greeks,
         pnl_calculator,
     )
 except ImportError:
-    analysis = None  # pandas required
+    analysis = None
 
-# Import commonly used functions for convenience
+# Common pricing/data functions
 from .data_loader_nasa import load_solar_parameters, fetch_nasa_data
 from .data_loader import load_parameters
 from .binomial import BinomialTree
 from .monte_carlo import MonteCarloSimulator, price_energy_derivative_mc
-from .sensitivities import GreeksCalculator, compute_energy_derivatives_greeks as calculate_greeks
+from .sensitivities import (
+    GreeksCalculator,
+    compute_energy_derivatives_greeks as calculate_greeks,
+)
 
-# Import multi-energy data loaders
-from .data_loader_base import EnergyDataLoader  # Abstract base class
-from .data_loader_wind import WindDataLoader  # Wind energy support
-from .data_loader_hydro import HydroDataLoader  # Hydroelectric support
+# Multi-energy data loaders
+from .data_loader_base import EnergyDataLoader
+from .data_loader_wind import WindDataLoader
+from .data_loader_hydro import HydroDataLoader
 
-# Import geographic location guide
+# Geographic location guide
 from .location_guide import (
     get_location,
     list_locations,
@@ -82,88 +86,110 @@ from .location_guide import (
     format_location_table,
 )
 
-# Import context translator (sophistication layer)
+# Context translation
 from .context_translator import (
     SolarSystemContext,
     PriceTranslator,
     VolatilityTranslator,
     GreeksTranslator,
-    create_contextual_summary
+    create_contextual_summary,
 )
 
-# Import results manager (professional workflow)
+# Results management
 from .results_manager import (
     PricingResult,
     ResultsComparator,
     PricingValidator,
     batch_price,
     comparative_context,
-    break_even_analysis
+    break_even_analysis,
+)
+
+# Policy Lab interoperability
+from .policy_lab import (
+    ADMITTED_READINGS,
+    POLICY_LAB_SCHEMA,
+    PolicyLabExposure,
+    PolicyLabPackageError,
+    PolicyPricedExposure,
+    extract_admitted_exposure,
+    load_claim_assessment,
+    price_admitted_exposure,
 )
 
 __all__ = [
     # Modules
-    'binomial',
-    'monte_carlo',
-    'sensitivities',
-    'plots',
-    'data_loader',
-    'data_loader_nasa',
-    'data_loader_base',  # Multi-energy support
-    'data_loader_wind',  # Multi-energy support
-    'data_loader_hydro',  # Multi-energy support
-    'location_guide',  # Geographic presets
-    'live_data',
-    'context_translator',
-    'results_manager',
+    "binomial",
+    "monte_carlo",
+    "sensitivities",
+    "plots",
+    "data_loader",
+    "data_loader_nasa",
+    "data_loader_base",
+    "data_loader_wind",
+    "data_loader_hydro",
+    "location_guide",
+    "live_data",
+    "context_translator",
+    "results_manager",
+    "analysis",
+    "policy_lab",
 
     # Convenience functions
-    'load_solar_parameters',
-    'fetch_nasa_data',
-    'load_parameters',
-    'BinomialTree',
-    'MonteCarloSimulator',
-    'price_energy_derivative_mc',
-    'GreeksCalculator',
-    'calculate_greeks',
+    "load_solar_parameters",
+    "fetch_nasa_data",
+    "load_parameters",
+    "BinomialTree",
+    "MonteCarloSimulator",
+    "price_energy_derivative_mc",
+    "GreeksCalculator",
+    "calculate_greeks",
 
     # Multi-energy data loaders
-    'EnergyDataLoader',  # Abstract base
-    'WindDataLoader',  # Wind support
-    'HydroDataLoader',  # Hydro support
+    "EnergyDataLoader",
+    "WindDataLoader",
+    "HydroDataLoader",
 
     # Geographic location guide
-    'get_location',
-    'list_locations',
-    'search_by_country',
-    'get_best_location_for_energy',
-    'format_location_table',
+    "get_location",
+    "list_locations",
+    "search_by_country",
+    "get_best_location_for_energy",
+    "format_location_table",
 
-    # Context translation (sophistication layer)
-    'SolarSystemContext',
-    'PriceTranslator',
-    'VolatilityTranslator',
-    'GreeksTranslator',
-    'create_contextual_summary',
+    # Context translation
+    "SolarSystemContext",
+    "PriceTranslator",
+    "VolatilityTranslator",
+    "GreeksTranslator",
+    "create_contextual_summary",
 
-    # Results management (professional workflow)
-    'PricingResult',
-    'ResultsComparator',
-    'PricingValidator',
-    'batch_price',
-    'comparative_context',
-    'break_even_analysis',
+    # Results management
+    "PricingResult",
+    "ResultsComparator",
+    "PricingValidator",
+    "batch_price",
+    "comparative_context",
+    "break_even_analysis",
 
-    # Analysis utilities (sensitivity, stress test, excel, comparison, p&l)
-    'analysis',
-    'sensitivity_table',
-    'stress_test_volatility',
-    'stress_test_rates',
-    'combined_stress_test',
-    'export_to_excel',
-    'run_full_analysis',
-    'scenario_comparison',
-    'break_even_analysis',
-    'portfolio_greeks',
-    'pnl_calculator',
+    # Analysis utilities
+    "sensitivity_table",
+    "stress_test_volatility",
+    "stress_test_rates",
+    "combined_stress_test",
+    "export_to_excel",
+    "run_full_analysis",
+    "scenario_comparison",
+    "portfolio_greeks",
+    "pnl_calculator",
+
+    # Policy Lab bridge
+    "POLICY_LAB_SCHEMA",
+    "ADMITTED_READINGS",
+    "PolicyLabExposure",
+    "PolicyPricedExposure",
+    "PolicyLabPackageError",
+    "load_claim_assessment",
+    "extract_admitted_exposure",
+    "price_admitted_exposure",
 ]

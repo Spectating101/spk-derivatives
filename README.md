@@ -1,223 +1,234 @@
-# SolarPunkCoin MVP
+# SPK Derivatives
 
-**Energy-backed stablecoin smart contract on Polygon (EVM).**
+**Policy-aware quantitative pricing and risk tooling for renewable-energy derivatives.**
 
-A working proof-of-concept for an institutional-grade cryptocurrency anchored to renewable energy surplus, implementing PI-control-based peg stabilization and oracle-gated minting.
+SPK Derivatives is a research/proof-of-concept Python framework for turning energy
+data and policy-admitted exposure quantities into reproducible derivative pricing,
+Greeks, stress tests, scenario analysis, and auditable outputs.
 
-## What's Included
+The project began as a solar-derivatives prototype and now supports **solar, wind,
+and hydro**, multiple pricing engines, workflow/reporting utilities, and a direct
+bridge from the **Policy Lab claim-assessment protocol**.
 
-```
-.
-├── contracts/SolarPunkCoin.sol       # Main ERC-20 stablecoin contract (400 lines)
-├── test/SolarPunkCoin.test.js        # 32 unit tests (all passing)
-├── scripts/
-│   ├── deploy.js                     # Automated deployment to Polygon Mumbai
-│   └── simulate_peg.py               # 1000-day peg stabilization simulation
-├── hardhat.config.js                 # Hardhat setup (Solidity 0.8.20)
-├── package.json                      # Node.js dependencies
-│
-├── RESEARCH/                         # Research papers (background)
-│   ├── CEIR-Trifecta.md
-│   ├── Final-Iteration.md
-│   ├── Quasi-SD-CEIR.md
-│   └── Empirical-Milestone.md
-│
-└── docs/                             # Essential documentation
-    ├── README.md (this file)
-    ├── SOLIDITY_QUICKSTART.md        # How to test/deploy
-    ├── MVP_SUMMARY.md                # 1-page grant summary
-    ├── POLYGON_ARCHITECTURE_EXPLAINED.md
-    └── REPO_STRUCTURE.md
-```
+> **Status:** research/beta software. It is suitable for experimentation,
+> education, model validation, and controlled prototyping; it is not a production
+> trading, settlement, or compliance system.
 
-## Key Features
+## What it does
 
-### ✅ Rule A: Surplus-Only Minting
-- Oracle-gated: Only mint when backed by verified renewable surplus (kWh)
-- Fee-based: 0.1% minting fee (seigniorage)
-- Access-controlled: Only MINTER role can call
-
-### ✅ Rule B: Intrinsic Redemption
-- Holders burn SPK → receive utility credits (kWh equivalent)
-- 0.2% redemption fee
-- Guarantees minimum intrinsic value
-
-### ✅ Rule D: PI Control Peg Stabilization
-- **Proportional term:** Immediate response to price deviation from $1.00 peg
-- **Integral term:** Corrects steady-state error over time
-- **Conservative limits:** Max 1% supply adjustment per call (safety first)
-- Mint/burn only when needed to push price toward target
-
-### ✅ Rule E: Grid Stress Safeguard
-- Oracle can pause minting if grid is unstable
-- Emergency pause/unpause by PAUSER role
-- Prevents destabilizing minting during peak demand
-
-## Is This Real Blockchain?
-
-**YES, 100% real Ethereum/Polygon code:**
-
-- ✅ **Solidity 0.8.20** – Actual smart contract language (compiles to EVM bytecode)
-- ✅ **OpenZeppelin** – Battle-tested libraries (ERC-20, AccessControl, Pausable)
-- ✅ **ethers.js** – Real blockchain interaction library
-- ✅ **Hardhat** – Industry-standard Ethereum development environment
-- ✅ **32 passing unit tests** – Contract logic verified locally
-
-**Status:**
-- ✅ Compiled successfully
-- ✅ All tests pass locally
-- ⏳ Draft/MVP (not mainnet—testnet ready)
-- ⏳ Not published (easily modifiable)
-- ⏳ No real $ at stake (local testing only)
-
-## Getting Started
-
-### Prerequisites
-```bash
-node --version  # v18+
-npm --version   # v9+
-```
-
-### Install & Test
-```bash
-# Install dependencies
-npm install --legacy-peer-deps
-
-# Compile smart contract
-npx hardhat compile
-
-# Run 32 unit tests
-npx hardhat test
-```
-
-**Expected output:**
-```
-  32 passing (1.0s)
-```
-
-### Deploy to Polygon Mumbai Testnet
-
-1. **Get test MATIC**
-   ```bash
-   # Visit: https://faucet.polygon.technology/
-   # Paste your wallet address, claim free test tokens
-   ```
-
-2. **Create `.env` from template**
-   ```bash
-   cp .env.example .env
-   # Edit .env: add your private key
-   ```
-
-3. **Deploy**
-   ```bash
-   npx hardhat run scripts/deploy.js --network mumbai
-   ```
-
-   Output will show your live contract address.
-
-### Run Simulation
-
-```bash
-# Python 3.8+, with dependencies
-python scripts/simulate_peg.py
-
-# Generates:
-# - spk_simulation.png (6-panel analysis chart)
-# - spk_simulation_results.csv (day-by-day metrics)
-```
+- **Pricing:** binomial-tree and Monte-Carlo valuation for call-style and
+  redeemable energy claims.
+- **Risk:** Delta, Gamma, Vega, Theta, Rho, sensitivity tables, stress tests,
+  scenario comparison, portfolio Greeks, break-even and P&L analysis.
+- **Energy data:** NASA POWER integration plus solar, wind, and hydro loaders.
+- **Context:** translate raw energy observations into kWh and value-oriented
+  analysis contexts.
+- **Workflow:** result validation, comparison, batch pricing, exports and reports.
+- **Policy Lab bridge:** consume a machine-readable claim-assessment package,
+  refuse blocked/ambiguous exposures, and carry assessment/evidence/decision IDs
+  into downstream pricing results.
 
 ## Architecture
 
-### Contract Design
-- **Standard:** ERC-20 + OpenZeppelin extensions
-- **Roles:** MINTER (mint from surplus), ORACLE (update price), PAUSER (emergency)
-- **Parameters:** Tunable peg control gains (proportional/integral)
-- **Gas costs:** 45–95K per function call (reasonable for Polygon)
-
-### Peg Control Algorithm
+```text
+Observed evidence / source data
+            |
+            v
+     Policy Lab protocol
+  evidence + policy constraints
+            |
+            v
+claim-assessment-package.v0.1
+(admitted quantity + provenance)
+            |
+            v
+      SPK Derivatives
+ pricing | Greeks | stress | P&L
+            |
+            v
+ auditable research / decision outputs
 ```
-1. Oracle submits current price P
-2. Calculate deviation: delta = (P - $1.00) / $1.00
-3. Proportional action: proportional_adjustment = -1% × delta
-4. Integral action: integral_adjustment = -0.5% × accumulated_error
-5. Total adjustment: clamped to ±1% of supply per call
-6. If adjustment > 0: mint new SPK (increase supply → push price down)
-7. If adjustment < 0: burn SPK (decrease supply → push price up)
+
+The boundary is intentional:
+
+- **Policy Lab establishes admissibility.**
+- **SPK Derivatives establishes quantitative consequences.**
+
+SPK Derivatives does **not** upgrade evidence quality, choose governance policy,
+or turn a blocked claim into a priceable exposure. If several policies admit
+different quantities, the caller must select the policy explicitly.
+
+The upstream Policy Lab implementation and protocol live in
+[`Spectating101/solarpunk-coin`](https://github.com/Spectating101/solarpunk-coin).
+
+## Install
+
+Published package:
+
+```bash
+pip install spk-derivatives
 ```
 
-### Safety Features
-- ✅ Supply cap: 1 billion SPK max
-- ✅ Balance checks before burns
-- ✅ Oracle staleness checks (8 hours default)
-- ✅ Emergency pause mechanism
-- ✅ Fee collection for governance/reserve
-- ✅ Whitelist-ready for DAO upgrade
+Current repository development version:
 
-## Test Coverage
+```bash
+git clone https://github.com/Spectating101/spk-derivatives.git
+cd spk-derivatives
+pip install -e ".[dev]"
+```
 
-| Category | Tests | Status |
-|----------|-------|--------|
-| Deployment | 2 | ✅ |
-| Minting (Rule A) | 5 | ✅ |
-| Peg Stabilization (Rule D) | 5 | ✅ |
-| Redemption (Rule B) | 4 | ✅ |
-| Grid Safety (Rule E) | 3 | ✅ |
-| Parameters | 4 | ✅ |
-| View Functions | 3 | ✅ |
-| Emergency | 3 | ✅ |
-| Integration | 2 | ✅ |
-| **TOTAL** | **32** | **✅** |
+## Quick start
 
-## Next Steps
+### Price a derivative
 
-### MVP Phase (This Week)
-- [ ] Deploy to Mumbai testnet
-- [ ] Get contract address from PolygonScan
-- [ ] Test live minting/redemption
-- [ ] Apply to Gitcoin/Polygon grants
+```python
+from spk_derivatives import BinomialTree, MonteCarloSimulator
 
-### v1.0 Phase (If Funded)
-- [ ] Integrate real oracle (Chainlink)
-- [ ] Connect CAISO/Taipower data
-- [ ] Add USDC reserve backing
-- [ ] DAO governance setup
-- [ ] Security audit
+tree = BinomialTree(
+    S0=0.035,
+    K=0.040,
+    T=1.0,
+    r=0.025,
+    sigma=0.42,
+    N=200,
+    payoff_type="call",
+)
 
-### Production (Before Mainnet)
-- [ ] Full security audit ($50–100K)
-- [ ] Legal review
-- [ ] Liquidity providers onboarding
-- [ ] Insurance coverage
+print(tree.price())
+```
 
-## Documentation
+### Use a Policy Lab assessment
 
-- **SOLIDITY_QUICKSTART.md** – How to test, deploy, modify contract
-- **MVP_SUMMARY.md** – 1-page grant application template
-- **POLYGON_ARCHITECTURE_EXPLAINED.md** – Why Polygon vs custom chain
-- **REPO_STRUCTURE.md** – File organization guide
+```python
+from spk_derivatives import (
+    extract_admitted_exposure,
+    price_admitted_exposure,
+)
 
-## Research Background
+exposure = extract_admitted_exposure(
+    "claim-assessment.json",
+    policy_id="your-policy-id",  # optional when only one policy is admitted
+)
 
-The SolarPunkCoin MVP is based on 18+ months of research into energy-backed cryptocurrencies:
+priced = price_admitted_exposure(
+    exposure,
+    S0=0.035,       # market value per admitted quantity unit
+    K=0.040,
+    T=1.0,
+    r=0.025,
+    sigma=0.42,
+    method="binomial",
+)
 
-- **CEIR-Trifecta.md** – Empirical study: Does energy cost anchor crypto value?
-- **Final-Iteration.md** – Design document: 10 institutional rules (A–J)
-- **Quasi-SD-CEIR.md** – Supply-demand + sentiment framework
-- **Empirical-Milestone.md** – Spring 2025 research proposal
+print(priced.total_value)
+print(priced.decision_id)
+print(priced.evidence_hash)
+```
 
-See `RESEARCH/` folder for full papers.
+No unit conversion is performed implicitly: `S0` and `K` must be expressed per
+unit of the Policy Lab `supported_quantity`.
+
+See [`docs/POLICY_LAB_INTEGRATION.md`](docs/POLICY_LAB_INTEGRATION.md) for the
+integration contract and failure semantics.
+
+## CLI
+
+The package exposes a working `spk-derivatives` command:
+
+```bash
+spk-derivatives info
+
+spk-derivatives policy-check claim-assessment.json --json
+
+spk-derivatives policy-price claim-assessment.json \
+  --spot 0.035 \
+  --strike 0.040 \
+  --maturity 1 \
+  --rate 0.025 \
+  --volatility 0.42 \
+  --method binomial \
+  --json
+```
+
+A blocked Policy Lab decision exits with an error rather than being priced.
+
+## Package surface
+
+```text
+energy_derivatives/spk_derivatives/
+├── binomial.py              # binomial pricing
+├── monte_carlo.py           # Monte-Carlo pricing
+├── sensitivities.py         # Greeks
+├── analysis.py              # stress/scenario/P&L utilities
+├── data_loader_*.py         # solar/wind/hydro + NASA
+├── location_guide.py        # geographic presets
+├── context_translator.py    # energy/value context
+├── results_manager.py       # validation/comparison/batch workflows
+├── policy_lab.py            # Policy Lab → admitted exposure bridge
+└── cli.py                   # command-line interface
+```
+
+Additional examples and notebooks live under `examples/`.
+
+## Policy-aware pricing contract
+
+The bridge currently targets:
+
+```text
+policylab.claim_assessment_package.v0.1
+```
+
+It consumes, at minimum, the package identities, claim period, evidence
+identity/assurance, policy evaluation, `supported_quantity`, and decision ID.
+
+Downstream pricing results retain:
+
+- `assessment_id`
+- `package_content_id`
+- `claim_id`
+- `policy_id`
+- `decision_id`
+- `evidence_hash`
+- `evidence_assurance`
+
+That makes it possible to trace a valuation back to the exact policy/evidence
+decision that admitted the quantity being valued.
+
+## Adjacent SolarPunkCoin MVP
+
+This repository also contains the earlier **SolarPunkCoin** smart-contract
+proof-of-concept (`contracts/`, `test/`, `scripts/simulate_peg.py`) and associated
+energy-anchoring research. It remains useful as an experimental application of
+the broader research thesis, but the **PyPI/package surface is SPK Derivatives**.
+
+Relevant material:
+
+- `contracts/SolarPunkCoin.sol`
+- `SOLIDITY_QUICKSTART.md`
+- `MVP_SUMMARY.md`
+- `POLYGON_ARCHITECTURE_EXPLAINED.md`
+- `RESEARCH/`
+
+## Validation
+
+Run the Python test suite:
+
+```bash
+pytest energy_derivatives/tests
+```
+
+The core suite includes model sanity checks (including binomial convergence
+against Black-Scholes), Monte-Carlo reproducibility, data-loader fallbacks, and
+Policy Lab bridge guardrails.
+
+## Research boundary
+
+The pricing engines use conventional quantitative-finance assumptions (including
+risk-neutral valuation and GBM-style dynamics in relevant paths). Renewable
+energy, physical delivery, policy constraints, and market microstructure can
+violate those assumptions. Treat model output as a testable analytical result,
+not as self-authenticating market truth.
 
 ## License
 
-MIT (see LICENSE file)
-
-## Questions?
-
-This is a **draft MVP**. All code is:
-- ✅ Real blockchain code (Solidity + ethers.js)
-- ✅ Tested locally (32/32 passing)
-- ✅ Safe for experimentation (testnet only)
-- ⏳ Ready for community feedback
-
-Not for production use without security audit.
+MIT. See [`LICENSE`](LICENSE).
