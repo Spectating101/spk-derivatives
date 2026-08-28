@@ -48,6 +48,11 @@ def test_current_surface_matches_runtime_contracts():
     assert "analytic_monte_carlo" in surface["reproducibility"]
     assert "aemo_nem" in surface["empirical_market_adapters"]
     assert surface["empirical_market_adapters"]["aemo_nem"]["price_unit"] == "AUD/MWh"
+    assert "aemo_ou_holdout" in surface["empirical_validation"]
+    assert (
+        surface["empirical_validation"]["aemo_ou_holdout"]["benchmark"]
+        == "persistence P[t+1]=P[t] on the identical holdout"
+    )
     assert "scope_document" in surface["supported_surface"]
     assert "spk-derivatives scenario-build" in surface["canonical_commands"]
     assert "spk-derivatives verify-scenario-set" in surface["canonical_commands"]

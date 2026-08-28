@@ -20,9 +20,10 @@ The following modules define the supported research/beta architecture:
 - `scenario_set` — deterministic scenario-set manifests;
 - `scenario_risk` — fixed-quantity market-risk distributions and model sensitivity;
 - `joint_risk` — authority-bounded joint realized-volume/price scenarios;
-- `model_validation` — analytic/Monte-Carlo consistency and replay diagnostics;
+- `model_validation` — analytic/Monte-Carlo consistency and generic replay diagnostics;
 - `market_artifacts` — deterministic market-risk packages with scenario-set binding;
 - `aemo_nem` — source-hashed public AEMO NEM `DISPATCH.PRICE` ingestion for the first real-market case;
+- `empirical_validation` — chronological AEMO OU holdout validation against persistence;
 - `cli` — canonical command-line verification and policy/market workflows.
 
 These modules are the focus of current validation and API design.
@@ -43,7 +44,9 @@ The first adapter, `aemo_nem`, follows these rules:
 8. fails on ambiguous duplicate settlement timestamps;
 9. emits a deterministic SPK scenario set carrying the source hash.
 
-The adapter therefore establishes a reproducible market-input boundary. It does not establish that AEMO data is Policy Lab evidence, that a scenario has a particular probability, or that a fitted market model is correct.
+The first empirical model gate then keeps the source identity attached while using a chronological prefix/holdout split. OU parameters are fitted only on the prefix and frozen before the held-out suffix is scored. Persistence is reported beside OU so serial persistence cannot be mistaken for evidence of model value.
+
+The adapter and validation gate therefore establish a reproducible market-input and evaluation boundary. They do not establish that AEMO data is Policy Lab evidence, that a scenario has a particular probability, that OU is the correct pricing model, or that a forecast improvement would translate into a profitable hedge.
 
 See `docs/AEMO_NEM_EMPIRICAL_CASE.md`.
 
@@ -73,6 +76,7 @@ The intended 1.0 gate is:
 3. model benchmarks have numerical identity/convergence tests;
 4. market-specific empirical cases identify source, sample, transformation, intervention/filtering, timestamp, and calibration assumptions;
 5. empirical scenario inputs are source-hashed and bound into downstream deterministic artifacts;
-6. compatibility modules are either promoted with equivalent validation or explicitly remain non-canonical.
+6. empirical model claims are scored on chronological holdouts against simple benchmarks before they can be promoted;
+7. compatibility modules are either promoted with equivalent validation or explicitly remain non-canonical.
 
 This document is a scope statement, not a production-readiness claim. SPK Derivatives remains research/beta software.

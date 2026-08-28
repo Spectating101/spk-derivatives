@@ -90,6 +90,19 @@
       "scenario_output": "spk_derivatives.scenario_set.v0.1"
     }
   },
+  "empirical_validation": {
+    "aemo_ou_holdout": {
+      "module": "spk_derivatives.empirical_validation",
+      "design": "chronological-prefix-fit-one-step-holdout",
+      "default_train_fraction": 0.7,
+      "parameter_fit": "OU parameters and normal volatility are estimated on the training prefix only",
+      "holdout_prediction": "one-step OU conditional mean with frozen training parameters",
+      "benchmark": "persistence P[t+1]=P[t] on the identical holdout",
+      "metrics": ["MAE", "RMSE", "bias", "correlation"],
+      "identity": "deterministic validation_id binds source hash, split, calibration and holdout metrics",
+      "non_claim": "holdout fit is descriptive empirical evidence, not a risk-neutral measure, hedge backtest, profitability claim or universal model winner"
+    }
+  },
   "supported_surface": {
     "scope_document": "docs/SUPPORTED_QUANTITATIVE_SURFACE.md",
     "principle": "the canonical 0.5 quantitative spine is validated separately from retained historical/compatibility modules",
@@ -129,6 +142,7 @@
     "A deterministic scenario identity establishes which scenarios were used, not their probability or authority.",
     "Binding a scenario_set_id into a market-risk artifact proves input identity, not market truth or forecast quality.",
     "An AEMO source hash proves which local file was consumed, not data completeness, finality, market-model correctness, or AEMO endorsement.",
+    "Chronological OU holdout performance is descriptive empirical evidence and must not be represented as risk-neutral calibration, hedge effectiveness or trading profitability.",
     "Mean-reverting jump/spike scenarios are scenario generators, not automatically a risk-neutral pricing measure.",
     "Explicit unit conversion does not establish semantic equivalence between claims, certificates, credits, and physical energy.",
     "Joint realized-quantity scenarios cannot expand Policy Lab-admitted authority.",

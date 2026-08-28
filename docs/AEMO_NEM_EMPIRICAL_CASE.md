@@ -82,6 +82,33 @@ spk-derivatives market-risk ./claim-assessment.json \
 
 The command will still reject the operation if the Policy Lab quantity unit and contract/scenario price unit do not form an exact declared unit pair. A physical `MWh` claim can naturally pair with `AUD/MWh`; a semantic unit such as `kWh-claim` cannot be silently treated as physical energy.
 
+## Chronological empirical validation gate
+
+`spk_derivatives.empirical_validation` adds a first out-of-sample market-model check rather than reporting only in-sample calibration.
+
+```bash
+python case_studies/aemo_nem/validate_ou.py \
+  ./PUBLIC_ARCHIVE#DISPATCHPRICE#FILE01#202606010000.zip \
+  --region NSW1 \
+  --train-fraction 0.70 \
+  --out ./artifacts/aemo-nsw1-2026-06.ou-validation.json
+```
+
+The current gate is deliberately simple and difficult to misread:
+
+1. preserve the chronological ordering;
+2. fit the OU diagnostic only on the training prefix;
+3. freeze those parameters;
+4. make one-step conditional-mean forecasts over the held-out suffix;
+5. score the same holdout against a persistence baseline (`P[t+1] = P[t]`);
+6. report MAE, RMSE, bias, correlation, calibration parameters, source hash, and a deterministic validation identity.
+
+The test suffix is never used to re-fit the OU parameters. The output explicitly records whether OU achieved lower holdout RMSE than persistence; the code does not assume that it did.
+
+This is a stronger empirical gate than asking whether an OU fit exists. Electricity prices are highly persistent, so an apparently small forecast error is not useful evidence unless a simple persistence benchmark is shown alongside it.
+
+The report still does **not** establish a risk-neutral pricing measure, hedge effectiveness, economic profitability, or a universal model winner. It is a chronological descriptive validation of one conditional-mean model against one minimum benchmark.
+
 ## What this case can test
 
 The AEMO surface is suitable for the next empirical validation wave:
@@ -91,9 +118,10 @@ The AEMO surface is suitable for the next empirical validation wave:
 3. calibration-window sensitivity;
 4. floor/cap/collar/PPA-style contract consequences under one fixed admitted quantity;
 5. model sensitivity versus Policy Lab governance-policy sensitivity;
-6. later joint renewable-volume/price analysis once an explicitly aligned generation series is introduced.
+6. later joint renewable-volume/price analysis once an explicitly aligned generation series is introduced;
+7. rolling/walk-forward validation beyond the initial fixed chronological holdout.
 
-The adapter does not yet claim an empirical winner among those models. It creates a reproducible input boundary on which such tests can be run.
+The adapter does not yet claim an empirical winner among those models. It creates a reproducible input boundary and a first leakage-resistant evaluation gate on which such tests can be run.
 
 ## What this case does not establish
 
@@ -103,6 +131,7 @@ Likewise:
 
 - historical replay is not a risk-neutral measure;
 - model fit is not hedge effectiveness;
+- outperforming persistence on one holdout is not production forecast validation;
 - a scenario-set identity is not probability authority;
 - a computed floor/cap/collar payoff is not a traded instrument or executed hedge;
 - this adapter does not imply AEMO endorsement;
