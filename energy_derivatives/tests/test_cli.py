@@ -270,7 +270,7 @@ def test_cli_market_risk_binds_scenario_identity(policy_package, tmp_path, capsy
             "--prices",
             str(prices),
             "--price-unit",
-            "USD/kWh",
+            "USD/kWh-claim",
             "--source",
             "unit-test",
             "--observed-at",
