@@ -26,6 +26,8 @@ jobs:
       - name: Run Slither
         uses: crytic/slither-action@v0.3.0
         with:
-          target: contracts/SolarPunkCoin.sol
+          target: .
+          solc-version: 0.8.20
+          node-version: 20
           slither-args: "--filter-paths node_modules"
           fail-on: medium
