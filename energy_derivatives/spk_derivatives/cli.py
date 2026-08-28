@@ -13,6 +13,15 @@ from .artifacts import (
     validate_pricing_result_package,
     write_pricing_result_package,
 )
+from .energy_contracts import EnergyContract
+from .market_artifacts import (
+    MarketRiskArtifactError,
+    SPK_MARKET_RISK_SCHEMA,
+    build_market_risk_package,
+    load_market_risk_package,
+    validate_market_risk_package,
+    write_market_risk_package,
+)
 from .policy_analysis import (
     PolicyComparisonError,
     SPK_POLICY_COMPARISON_SCHEMA,
@@ -27,6 +36,7 @@ from .policy_lab import (
     extract_admitted_exposure,
     price_admitted_exposure,
 )
+from .scenario_risk import summarize_policy_contract_distribution
 
 
 def _emit(payload: Any, as_json: bool) -> None:
@@ -80,6 +90,18 @@ def _add_pricing_arguments(parser: argparse.ArgumentParser) -> None:
     )
 
 
+def _add_contract_arguments(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--contract-type",
+        choices=("merchant", "fixed-price", "floor", "cap", "collar"),
+        required=True,
+    )
+    parser.add_argument("--currency", required=True)
+    parser.add_argument("--fixed-price", type=float)
+    parser.add_argument("--floor-price", type=float)
+    parser.add_argument("--cap-price", type=float)
+
+
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="spk-derivatives",
@@ -98,6 +120,7 @@ def _build_parser() -> argparse.ArgumentParser:
     _add_policy_selector(preflight)
     preflight.add_argument("--result-package")
     preflight.add_argument("--comparison-package")
+    preflight.add_argument("--market-risk-package")
     preflight.add_argument("--json", action="store_true", dest="as_json")
 
     check = subparsers.add_parser(
@@ -140,6 +163,23 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     sweep.add_argument("--json", action="store_true", dest="as_json")
 
+    market_risk = subparsers.add_parser(
+        "market-risk",
+        help="Apply explicit market-price scenarios and contract terms to one admitted quantity",
+    )
+    market_risk.add_argument("package", help="Path to Policy Lab claim-assessment JSON")
+    _add_policy_selector(market_risk)
+    market_risk.add_argument(
+        "--prices",
+        required=True,
+        help="Path to a JSON array of market-price scenarios",
+    )
+    _add_contract_arguments(market_risk)
+    market_risk.add_argument("--market-source", default="user-supplied-json")
+    market_risk.add_argument("--model-id", default="empirical-scenarios")
+    market_risk.add_argument("--package-out")
+    market_risk.add_argument("--json", action="store_true", dest="as_json")
+
     verify = subparsers.add_parser(
         "verify-result",
         help="Verify a deterministic SPK pricing result package and its identities",
@@ -154,6 +194,13 @@ def _build_parser() -> argparse.ArgumentParser:
     verify_comparison.add_argument("package")
     verify_comparison.add_argument("--json", action="store_true", dest="as_json")
 
+    verify_market = subparsers.add_parser(
+        "verify-market-risk",
+        help="Verify a deterministic SPK market-risk package and its identities",
+    )
+    verify_market.add_argument("package")
+    verify_market.add_argument("--json", action="store_true", dest="as_json")
+
     return parser
 
 
@@ -164,13 +211,15 @@ def _runtime_info() -> Dict[str, Any]:
         "name": "spk-derivatives",
         "version": __version__,
         "software_status": "research-beta",
-        "pricing": "binomial, monte-carlo, Greeks, stress/scenario analysis",
+        "pricing": "binomial, monte-carlo, Black-76, Bachelier, OU scenarios, Greeks",
         "energy": "solar, wind, hydro",
         "policy_lab_schema": POLICY_LAB_SCHEMA,
         "policy_lab_profile": POLICY_LAB_PROFILE,
         "pricing_result_schema": SPK_PRICING_PACKAGE_SCHEMA,
         "policy_comparison_schema": SPK_POLICY_COMPARISON_SCHEMA,
+        "market_risk_schema": SPK_MARKET_RISK_SCHEMA,
         "policy_sensitivity": "compare and price admitted governance outcomes under common assumptions",
+        "market_model_sensitivity": "compare price-model consequences under fixed admitted quantity and contract terms",
     }
 
 
@@ -230,6 +279,24 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             )
             return 0
 
+        if args.command == "verify-market-risk":
+            package = load_market_risk_package(args.package)
+            validate_market_risk_package(package)
+            _emit(
+                {
+                    "status": "ok",
+                    "schema": package["schema"],
+                    "artifact_id": package["artifact_id"],
+                    "package_content_id": package["package_content_id"],
+                    "policy_id": package["authority"]["policy_id"],
+                    "decision_id": package["authority"]["decision_id"],
+                    "contract_type": package["contract"]["contract_type"],
+                    "scenarios": package["risk"]["scenarios"],
+                },
+                args.as_json,
+            )
+            return 0
+
         if args.command == "preflight":
             payload = {**_runtime_info(), "status": "ok"}
             if args.policy_package:
@@ -262,6 +329,14 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
                     "comparison_id": comparison_package["comparison_id"],
                     "package_content_id": comparison_package["package_content_id"],
                 }
+            if args.market_risk_package:
+                market_package = load_market_risk_package(args.market_risk_package)
+                validate_market_risk_package(market_package)
+                payload["market_risk_package"] = {
+                    "status": "verified",
+                    "artifact_id": market_package["artifact_id"],
+                    "package_content_id": market_package["package_content_id"],
+                }
             _emit(payload, args.as_json)
             return 0
 
@@ -288,6 +363,46 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         exposure = extract_admitted_exposure(args.package, policy_id=args.policy_id)
         if args.command == "policy-check":
             _emit(exposure.to_dict(), args.as_json)
+            return 0
+
+        if args.command == "market-risk":
+            price_payload = json.loads(Path(args.prices).read_text(encoding="utf-8"))
+            if not isinstance(price_payload, list):
+                raise ValueError("market-risk --prices must contain a JSON array")
+            contract = EnergyContract(
+                args.contract_type,
+                currency=args.currency,
+                quantity_unit=exposure.unit,
+                fixed_price=args.fixed_price,
+                floor_price=args.floor_price,
+                cap_price=args.cap_price,
+            )
+            distribution = summarize_policy_contract_distribution(
+                exposure,
+                price_payload,
+                contract,
+            )
+            output = distribution.to_dict()
+            if args.package_out:
+                market_package = build_market_risk_package(
+                    exposure,
+                    distribution,
+                    contract,
+                    market_input={
+                        "kind": "user-supplied-price-scenarios",
+                        "source": args.market_source,
+                        "price_unit": contract.price_unit,
+                    },
+                    scenario_model={
+                        "id": args.model_id,
+                        "scenario_count": distribution.distribution.scenarios,
+                    },
+                )
+                target = write_market_risk_package(market_package, args.package_out)
+                output["market_risk_package"] = str(target)
+                output["artifact_id"] = market_package["artifact_id"]
+                output["market_risk_package_content_id"] = market_package["package_content_id"]
+            _emit(output, args.as_json)
             return 0
 
         result = price_admitted_exposure(exposure, **_pricing_kwargs(args))
@@ -323,6 +438,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         PolicyLabPackageError,
         PricingArtifactError,
         PolicyComparisonError,
+        MarketRiskArtifactError,
         ValueError,
         OSError,
         json.JSONDecodeError,
