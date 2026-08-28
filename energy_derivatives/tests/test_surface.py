@@ -25,6 +25,7 @@ def test_current_surface_matches_runtime_contracts():
     assert surface["artifact_protocol"]["canonicalization"] == SPK_CANONICALIZATION
     assert "black-76-forward-option" in surface["market_model_boundary"]["market_models"]
     assert "bachelier-normal-forward-option" in surface["market_model_boundary"]["market_models"]
+    assert "mean-reverting-compound-poisson-spike-scenarios" in surface["market_model_boundary"]["market_models"]
     assert "provenance-bearing-forward-curves" in surface["market_model_boundary"]["market_inputs"]
     assert "fixed-price" in surface["market_model_boundary"]["contract_settlement"]
     assert "explicit conversion objects" in surface["market_model_boundary"]["unit_conversion"]
@@ -33,6 +34,7 @@ def test_current_surface_matches_runtime_contracts():
     assert "authority_cap" in surface["joint_volume_price_risk"]
     assert "scenario_sets" in surface["reproducibility"]
     assert "analytic_monte_carlo" in surface["reproducibility"]
+    assert "scope_document" in surface["supported_surface"]
     assert "spk-derivatives market-risk" in surface["canonical_commands"]
     assert "spk-derivatives verify-market-risk" in surface["canonical_commands"]
 
@@ -44,6 +46,8 @@ def test_current_surface_paths_exist():
     assert (root / surface["artifact_protocol"]["schema_path"]).is_file()
     assert (root / surface["artifact_protocol"]["comparison_schema_path"]).is_file()
     assert (root / surface["artifact_protocol"]["market_risk_schema_path"]).is_file()
+    assert (root / surface["artifact_protocol"]["scenario_set_schema_path"]).is_file()
+    assert (root / surface["supported_surface"]["scope_document"]).is_file()
     assert (root / surface["validation"]["python_tests"]).is_dir()
     assert (root / surface["validation"]["solidity_tests"]).is_file()
     assert (root / surface["validation"]["solidity_security"]).is_file()
@@ -51,3 +55,4 @@ def test_current_surface_paths_exist():
     assert (root / surface["validation"]["market_model_architecture"]).is_file()
     assert (root / surface["validation"]["market_calibration_and_risk"]).is_file()
     assert (root / surface["validation"]["scenario_identity_and_model_validation"]).is_file()
+    assert (root / surface["validation"]["supported_quantitative_surface"]).is_file()

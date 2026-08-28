@@ -18,7 +18,8 @@
     "market_models": [
       "black-76-forward-option",
       "bachelier-normal-forward-option",
-      "ornstein-uhlenbeck-terminal-scenarios"
+      "ornstein-uhlenbeck-terminal-scenarios",
+      "mean-reverting-compound-poisson-spike-scenarios"
     ],
     "market_inputs": [
       "provenance-bearing-forward-curves",
@@ -36,7 +37,7 @@
       "cap",
       "collar"
     ],
-    "negative_price_support": "Forward curves, Bachelier and Ornstein-Uhlenbeck surfaces permit negative market prices; Black-76 explicitly rejects non-positive forwards"
+    "negative_price_support": "Forward curves, Bachelier, Ornstein-Uhlenbeck, and spike-scenario surfaces permit negative market prices; Black-76 explicitly rejects non-positive forwards"
   },
   "artifact_protocol": {
     "pricing_result_schema": "spk_derivatives.pricing_result_package.v0.1",
@@ -46,6 +47,7 @@
     "schema_path": "protocol/schema/pricing-result-package.v0.1.schema.json",
     "comparison_schema_path": "protocol/schema/policy-comparison-package.v0.1.schema.json",
     "market_risk_schema_path": "protocol/schema/market-risk-package.v0.1.schema.json",
+    "scenario_set_schema_path": "protocol/schema/scenario-set.v0.1.schema.json",
     "identity_algorithm": "SHA-256",
     "canonicalization": "python-json-sort-keys-compact-utf8-v0.1"
   },
@@ -70,6 +72,11 @@
     "historical_replay": "MAE, RMSE, bias and correlation diagnostics are available for aligned observed/modeled series",
     "interpretation": "implementation consistency and replay diagnostics do not establish empirical model correctness"
   },
+  "supported_surface": {
+    "scope_document": "docs/SUPPORTED_QUANTITATIVE_SURFACE.md",
+    "principle": "the canonical 0.5 quantitative spine is validated separately from retained historical/compatibility modules",
+    "legacy_status": "historical utilities remain available but are not implied to have the same support or coverage contract as the canonical spine"
+  },
   "canonical_commands": [
     "spk-derivatives info",
     "spk-derivatives preflight",
@@ -89,7 +96,8 @@
     "trust_boundary": "docs/TRUST_BOUNDARY_AND_THREAT_MODEL.md",
     "market_model_architecture": "docs/MARKET_MODEL_ARCHITECTURE.md",
     "market_calibration_and_risk": "docs/MARKET_CALIBRATION_AND_RISK.md",
-    "scenario_identity_and_model_validation": "docs/SCENARIO_IDENTITY_AND_MODEL_VALIDATION.md"
+    "scenario_identity_and_model_validation": "docs/SCENARIO_IDENTITY_AND_MODEL_VALIDATION.md",
+    "supported_quantitative_surface": "docs/SUPPORTED_QUANTITATIVE_SURFACE.md"
   },
   "non_claims": [
     "SPK Derivatives is not a policy authority.",
@@ -98,11 +106,13 @@
     "Historical calibration does not automatically establish a risk-neutral pricing measure.",
     "Analytic-versus-Monte-Carlo agreement validates implementation consistency under common assumptions, not market-model correctness.",
     "A deterministic scenario identity establishes which scenarios were used, not their probability or authority.",
+    "Mean-reverting jump/spike scenarios are scenario generators, not automatically a risk-neutral pricing measure.",
     "Explicit unit conversion does not establish semantic equivalence between claims, certificates, credits, and physical energy.",
     "Joint realized-quantity scenarios cannot expand Policy Lab-admitted authority.",
     "Model output is not settlement, legal, regulatory, liquidity, or execution authority.",
     "Ornstein-Uhlenbeck scenarios are not automatically a risk-neutral pricing measure.",
     "Deterministic contract settlement arithmetic is not legal settlement authority or trade execution.",
+    "Repository-wide coverage includes retained historical modules and should not be confused with canonical-spine validation coverage.",
     "The repository remains research/beta software rather than a production trading system."
   ]
 }
