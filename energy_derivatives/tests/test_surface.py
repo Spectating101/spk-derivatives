@@ -19,6 +19,9 @@ def test_current_surface_matches_runtime_contracts():
     assert surface["artifact_protocol"]["pricing_result_schema"] == SPK_PRICING_PACKAGE_SCHEMA
     assert surface["artifact_protocol"]["policy_comparison_schema"] == SPK_POLICY_COMPARISON_SCHEMA
     assert surface["artifact_protocol"]["canonicalization"] == SPK_CANONICALIZATION
+    assert "black-76-forward-option" in surface["market_model_boundary"]["market_models"]
+    assert "bachelier-normal-forward-option" in surface["market_model_boundary"]["market_models"]
+    assert "fixed-price" in surface["market_model_boundary"]["contract_settlement"]
 
 
 def test_current_surface_paths_exist():
@@ -31,3 +34,4 @@ def test_current_surface_paths_exist():
     assert (root / surface["validation"]["solidity_tests"]).is_file()
     assert (root / surface["validation"]["solidity_security"]).is_file()
     assert (root / surface["validation"]["trust_boundary"]).is_file()
+    assert (root / surface["validation"]["market_model_architecture"]).is_file()

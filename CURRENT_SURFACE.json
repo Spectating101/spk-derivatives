@@ -12,6 +12,23 @@
     "responsibility": "evidence, admissibility, policy constraints, governance",
     "downstream_responsibility": "pricing, risk, scenario, policy-sensitivity and model consequences"
   },
+  "market_model_boundary": {
+    "principle": "physical quantity and market price are separate analytical processes",
+    "physical_quantity": "SPK consumes an explicitly admitted Policy Lab quantity and never derives market price from that quantity implicitly",
+    "market_models": [
+      "black-76-forward-option",
+      "bachelier-normal-forward-option",
+      "ornstein-uhlenbeck-terminal-scenarios"
+    ],
+    "contract_settlement": [
+      "merchant",
+      "fixed-price",
+      "floor",
+      "cap",
+      "collar"
+    ],
+    "negative_price_support": "Bachelier and Ornstein-Uhlenbeck surfaces permit negative market prices; Black-76 explicitly rejects non-positive forwards"
+  },
   "artifact_protocol": {
     "pricing_result_schema": "spk_derivatives.pricing_result_package.v0.1",
     "policy_comparison_schema": "spk_derivatives.policy_comparison_package.v0.1",
@@ -39,13 +56,16 @@
     "python_tests": "energy_derivatives/tests",
     "solidity_tests": ".github/workflows/solidity-tests.yml",
     "solidity_security": ".github/workflows/solidity-security.yml",
-    "trust_boundary": "docs/TRUST_BOUNDARY_AND_THREAT_MODEL.md"
+    "trust_boundary": "docs/TRUST_BOUNDARY_AND_THREAT_MODEL.md",
+    "market_model_architecture": "docs/MARKET_MODEL_ARCHITECTURE.md"
   },
   "non_claims": [
     "SPK Derivatives is not a policy authority.",
     "SPK Derivatives does not upgrade Policy Lab evidence assurance.",
     "Policy sensitivity is not the same thing as market sensitivity or evidence truth.",
     "Model output is not settlement, legal, regulatory, liquidity, or execution authority.",
+    "Ornstein-Uhlenbeck scenarios are not automatically a risk-neutral pricing measure.",
+    "Deterministic contract settlement arithmetic is not legal settlement authority or trade execution.",
     "The repository remains research/beta software rather than a production trading system."
   ]
 }

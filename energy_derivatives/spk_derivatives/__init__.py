@@ -3,9 +3,9 @@ SPK Derivatives: Energy Derivatives Pricing Framework
 ======================================================
 
 A quantitative framework for pricing energy derivatives (solar, wind, hydro)
-using binomial trees, Monte-Carlo simulation, risk-neutral valuation,
-policy-admitted exposure quantities, deterministic research artifacts, and
-explicit policy-sensitivity analysis.
+using binomial trees, Monte-Carlo simulation, forward-market models,
+policy-admitted exposure quantities, deterministic research artifacts, explicit
+contract settlement, and policy-sensitivity analysis.
 """
 
 __version__ = "0.5.0"
@@ -27,6 +27,8 @@ from . import results_manager
 from . import policy_lab
 from . import artifacts
 from . import policy_analysis
+from . import market_models
+from . import energy_contracts
 
 # Optional: plots (requires matplotlib)
 try:
@@ -59,6 +61,27 @@ from .monte_carlo import MonteCarloSimulator, price_energy_derivative_mc
 from .sensitivities import (
     GreeksCalculator,
     compute_energy_derivatives_greeks as calculate_greeks,
+)
+
+# Forward-market and mean-reversion models
+from .market_models import (
+    ForwardOptionValue,
+    MarketModelError,
+    bachelier_option_price,
+    black76_option_price,
+    ou_terminal_moments,
+    simulate_ou_terminal_prices,
+)
+
+# Explicit energy-contract settlement
+from .energy_contracts import (
+    ContractSettlement,
+    EnergyContract,
+    EnergyContractError,
+    PolicyContractSettlement,
+    settle_energy_contract,
+    settle_policy_exposure,
+    settled_unit_price,
 )
 
 # Multi-energy data loaders
@@ -155,6 +178,8 @@ __all__ = [
     "policy_lab",
     "artifacts",
     "policy_analysis",
+    "market_models",
+    "energy_contracts",
 
     # Convenience functions
     "load_solar_parameters",
@@ -165,6 +190,23 @@ __all__ = [
     "price_energy_derivative_mc",
     "GreeksCalculator",
     "calculate_greeks",
+
+    # Forward-market and mean-reversion models
+    "MarketModelError",
+    "ForwardOptionValue",
+    "black76_option_price",
+    "bachelier_option_price",
+    "ou_terminal_moments",
+    "simulate_ou_terminal_prices",
+
+    # Explicit contract settlement
+    "EnergyContractError",
+    "EnergyContract",
+    "ContractSettlement",
+    "PolicyContractSettlement",
+    "settled_unit_price",
+    "settle_energy_contract",
+    "settle_policy_exposure",
 
     # Multi-energy data loaders
     "EnergyDataLoader",
