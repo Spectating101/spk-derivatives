@@ -2,16 +2,11 @@ name: hardhat-deploy
 
 on:
   workflow_dispatch:
-  push:
-    branches: [ main ]
 
 jobs:
   deploy:
-    if: ${{ secrets.RPC_URL != '' && secrets.PRIVATE_KEY != '' }}
+    name: Legacy SolarPunkCoin deployment
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: blockchain
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -20,15 +15,24 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
+          cache: npm
+
+      - name: Require deployment secrets
+        env:
+          POLYGON_MUMBAI_RPC: ${{ secrets.POLYGON_MUMBAI_RPC }}
+          PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
+        run: |
+          test -n "$POLYGON_MUMBAI_RPC" || (echo "::error::POLYGON_MUMBAI_RPC is required" && exit 1)
+          test -n "$PRIVATE_KEY" || (echo "::error::PRIVATE_KEY is required" && exit 1)
 
       - name: Install
-        run: npm install
+        run: npm ci --legacy-peer-deps
 
-      - name: Deploy to sepolia
+      - name: Deploy legacy contract
         env:
-          RPC_URL: ${{ secrets.RPC_URL }}
+          POLYGON_MUMBAI_RPC: ${{ secrets.POLYGON_MUMBAI_RPC }}
           PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
           ETHERSCAN_API_KEY: ${{ secrets.ETHERSCAN_API_KEY }}
         run: |
           npx hardhat compile
-          npx hardhat run scripts/deploy.js --network sepolia
+          npx hardhat run scripts/deploy.js --network mumbai
