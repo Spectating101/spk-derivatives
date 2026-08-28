@@ -35,6 +35,10 @@ def test_current_surface_matches_runtime_contracts():
         in surface["market_model_boundary"]["market_inputs"]
     )
     assert "identity-bound-scenario-sets" in surface["market_model_boundary"]["market_inputs"]
+    assert (
+        "source-hashed-aemo-nem-dispatch-prices"
+        in surface["market_model_boundary"]["market_inputs"]
+    )
     assert "fixed-price" in surface["market_model_boundary"]["contract_settlement"]
     assert "explicit conversion objects" in surface["market_model_boundary"]["unit_conversion"]
     assert "curve source" in surface["market_model_boundary"]["forward_pricing_provenance"]
@@ -42,6 +46,8 @@ def test_current_surface_matches_runtime_contracts():
     assert "authority_cap" in surface["joint_volume_price_risk"]
     assert "scenario_sets" in surface["reproducibility"]
     assert "analytic_monte_carlo" in surface["reproducibility"]
+    assert "aemo_nem" in surface["empirical_market_adapters"]
+    assert surface["empirical_market_adapters"]["aemo_nem"]["price_unit"] == "AUD/MWh"
     assert "scope_document" in surface["supported_surface"]
     assert "spk-derivatives scenario-build" in surface["canonical_commands"]
     assert "spk-derivatives verify-scenario-set" in surface["canonical_commands"]
@@ -58,6 +64,9 @@ def test_current_surface_paths_exist():
     assert (root / surface["artifact_protocol"]["market_risk_schema_path"]).is_file()
     assert (root / surface["artifact_protocol"]["scenario_set_schema_path"]).is_file()
     assert (root / surface["supported_surface"]["scope_document"]).is_file()
+    assert (
+        root / surface["empirical_market_adapters"]["aemo_nem"]["case_document"]
+    ).is_file()
     assert (root / surface["validation"]["python_tests"]).is_dir()
     assert (root / surface["validation"]["solidity_tests"]).is_file()
     assert (root / surface["validation"]["solidity_security"]).is_file()
@@ -68,3 +77,4 @@ def test_current_surface_paths_exist():
         root / surface["validation"]["scenario_identity_and_model_validation"]
     ).is_file()
     assert (root / surface["validation"]["supported_quantitative_surface"]).is_file()
+    assert (root / surface["validation"]["aemo_nem_empirical_case"]).is_file()

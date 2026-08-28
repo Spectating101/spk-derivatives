@@ -24,6 +24,7 @@
     "market_inputs": [
       "provenance-bearing-forward-curves",
       "identity-bound-scenario-sets",
+      "source-hashed-aemo-nem-dispatch-prices",
       "historical-normal-volatility",
       "historical-lognormal-volatility",
       "diagnostic-ou-calibration"
@@ -38,7 +39,7 @@
       "cap",
       "collar"
     ],
-    "negative_price_support": "Forward curves, Bachelier, Ornstein-Uhlenbeck, and spike-scenario surfaces permit negative market prices; Black-76 explicitly rejects non-positive forwards"
+    "negative_price_support": "AEMO empirical inputs, forward curves, Bachelier, Ornstein-Uhlenbeck, and spike-scenario surfaces permit negative market prices; Black-76 explicitly rejects non-positive forwards"
   },
   "artifact_protocol": {
     "pricing_result_schema": "spk_derivatives.pricing_result_package.v0.1",
@@ -74,6 +75,21 @@
     "historical_replay": "MAE, RMSE, bias and correlation diagnostics are available for aligned observed/modeled series",
     "interpretation": "implementation consistency and replay diagnostics do not establish empirical model correctness"
   },
+  "empirical_market_adapters": {
+    "aemo_nem": {
+      "module": "spk_derivatives.aemo_nem",
+      "case_document": "docs/AEMO_NEM_EMPIRICAL_CASE.md",
+      "source_authority": "Australian Energy Market Operator public NEM DISPATCH.PRICE",
+      "price_unit": "AUD/MWh",
+      "regions": ["NSW1", "QLD1", "SA1", "TAS1", "VIC1"],
+      "source_identity": "SHA-256 of the exact local CSV or ZIP file bytes",
+      "network_access": "none; adapter consumes an explicitly supplied local file",
+      "market_clock": "AEST UTC+10 fixed; period-ending timestamps converted to UTC",
+      "intervention_filter": "INTERVENTION=0 by default when present",
+      "transformations": "region selection, intervention filtering, timestamp conversion and ordering only; no clipping, aggregation, winsorization or unit conversion",
+      "scenario_output": "spk_derivatives.scenario_set.v0.1"
+    }
+  },
   "supported_surface": {
     "scope_document": "docs/SUPPORTED_QUANTITATIVE_SURFACE.md",
     "principle": "the canonical 0.5 quantitative spine is validated separately from retained historical/compatibility modules",
@@ -101,7 +117,8 @@
     "market_model_architecture": "docs/MARKET_MODEL_ARCHITECTURE.md",
     "market_calibration_and_risk": "docs/MARKET_CALIBRATION_AND_RISK.md",
     "scenario_identity_and_model_validation": "docs/SCENARIO_IDENTITY_AND_MODEL_VALIDATION.md",
-    "supported_quantitative_surface": "docs/SUPPORTED_QUANTITATIVE_SURFACE.md"
+    "supported_quantitative_surface": "docs/SUPPORTED_QUANTITATIVE_SURFACE.md",
+    "aemo_nem_empirical_case": "docs/AEMO_NEM_EMPIRICAL_CASE.md"
   },
   "non_claims": [
     "SPK Derivatives is not a policy authority.",
@@ -111,6 +128,7 @@
     "Analytic-versus-Monte-Carlo agreement validates implementation consistency under common assumptions, not market-model correctness.",
     "A deterministic scenario identity establishes which scenarios were used, not their probability or authority.",
     "Binding a scenario_set_id into a market-risk artifact proves input identity, not market truth or forecast quality.",
+    "An AEMO source hash proves which local file was consumed, not data completeness, finality, market-model correctness, or AEMO endorsement.",
     "Mean-reverting jump/spike scenarios are scenario generators, not automatically a risk-neutral pricing measure.",
     "Explicit unit conversion does not establish semantic equivalence between claims, certificates, credits, and physical energy.",
     "Joint realized-quantity scenarios cannot expand Policy Lab-admitted authority.",

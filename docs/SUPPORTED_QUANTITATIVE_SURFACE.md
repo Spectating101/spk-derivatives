@@ -21,10 +21,31 @@ The following modules define the supported research/beta architecture:
 - `scenario_risk` — fixed-quantity market-risk distributions and model sensitivity;
 - `joint_risk` — authority-bounded joint realized-volume/price scenarios;
 - `model_validation` — analytic/Monte-Carlo consistency and replay diagnostics;
-- `market_artifacts` — deterministic market-risk packages;
+- `market_artifacts` — deterministic market-risk packages with scenario-set binding;
+- `aemo_nem` — source-hashed public AEMO NEM `DISPATCH.PRICE` ingestion for the first real-market case;
 - `cli` — canonical command-line verification and policy/market workflows.
 
 These modules are the focus of current validation and API design.
+
+## Empirical adapter policy
+
+A market adapter can enter the canonical research/beta spine only if it keeps market data separate from Policy Lab authority and makes its transformations inspectable.
+
+The first adapter, `aemo_nem`, follows these rules:
+
+1. consumes a local public AEMO CSV or single-layer ZIP rather than performing hidden network access;
+2. hashes the exact source file bytes with SHA-256;
+3. selects one declared NEM region;
+4. uses native `DISPATCH.PRICE` RRP observations in `AUD/MWh`;
+5. filters to `INTERVENTION = 0` by default when that field exists;
+6. converts AEMO's fixed-AEST period-ending timestamps to UTC;
+7. preserves negative and spike prices without clipping or winsorization;
+8. fails on ambiguous duplicate settlement timestamps;
+9. emits a deterministic SPK scenario set carrying the source hash.
+
+The adapter therefore establishes a reproducible market-input boundary. It does not establish that AEMO data is Policy Lab evidence, that a scenario has a particular probability, or that a fitted market model is correct.
+
+See `docs/AEMO_NEM_EMPIRICAL_CASE.md`.
 
 ## Compatibility / historical surface
 
@@ -50,7 +71,8 @@ The intended 1.0 gate is:
 1. canonical spine modules are individually tested around their public contracts and failure modes;
 2. deterministic artifact validators have tamper and cross-field tests;
 3. model benchmarks have numerical identity/convergence tests;
-4. market-specific empirical cases identify source, sample, transformation, and calibration assumptions;
-5. compatibility modules are either promoted with equivalent validation or explicitly remain non-canonical.
+4. market-specific empirical cases identify source, sample, transformation, intervention/filtering, timestamp, and calibration assumptions;
+5. empirical scenario inputs are source-hashed and bound into downstream deterministic artifacts;
+6. compatibility modules are either promoted with equivalent validation or explicitly remain non-canonical.
 
 This document is a scope statement, not a production-readiness claim. SPK Derivatives remains research/beta software.
