@@ -1,332 +1,286 @@
 # SPK Derivatives
 
-**Policy-aware quantitative pricing, risk, and provenance tooling for renewable-energy derivatives.**
+**Policy-aware quantitative pricing, market-risk, and scenario tooling for renewable-energy exposures.**
 
-SPK Derivatives is a research/beta Python framework for turning energy data and
-policy-admitted exposure quantities into reproducible derivative pricing,
-Greeks, stress tests, scenario analysis, and machine-verifiable research
-artifacts.
+SPK Derivatives is a research/beta Python framework for separating and analyzing the distinct layers of an energy-linked financial conclusion:
 
-The project began as a solar-derivatives proof of concept and now supports
-**solar, wind, and hydro**, multiple pricing engines, workflow/reporting
-utilities, and a direct boundary with the **Policy Lab claim-assessment
-protocol**.
+**evidence → governance policy → admitted physical quantity → market data/model → contract payoff → quantitative value/risk**
 
-> **Status:** research/beta software. It is suitable for experimentation,
-> education, model validation, controlled prototyping, and external evaluation;
-> it is not a production trading, settlement, compliance, or policy system.
+The package began as a solar-energy derivatives research prototype. The current `0.5` line makes the boundaries explicit rather than treating renewable output, market price, policy authority, and settlement as one object.
 
-## What it does
+## What SPK owns
 
-- **Pricing:** binomial-tree and Monte-Carlo valuation for call-style and
-  redeemable energy claims.
-- **Risk:** Delta, Gamma, Vega, Theta, Rho, sensitivity tables, stress tests,
-  scenario comparison, portfolio Greeks, break-even and P&L analysis.
-- **Energy data:** NASA POWER integration plus solar, wind, and hydro loaders.
-- **Context:** translate raw energy observations into kWh and value-oriented
-  analysis contexts.
-- **Workflow:** result validation, comparison, batch pricing, exports and reports.
-- **Policy Lab bridge:** consume a machine-readable claim-assessment package,
-  refuse blocked/ambiguous exposures, and preserve assessment/evidence/decision
-  identities downstream.
-- **Deterministic artifacts:** emit pricing-result packages with separate semantic
-  and full-content SHA-256 identities so assumptions, provenance, valuation, and
-  later mutation stay visible.
-- **Preflight:** verify runtime contracts and Policy Lab/SPK artifact boundaries
-  from the CLI.
+SPK Derivatives owns downstream quantitative work:
 
-## Architecture
+- binomial and Monte-Carlo benchmark pricing;
+- Black-76 and Bachelier forward-option benchmarks;
+- Ornstein-Uhlenbeck mean-reverting market-price scenarios;
+- provenance-bearing forward curves and transparent calibration diagnostics;
+- explicit merchant, fixed-price, floor, cap, and collar settlement arithmetic;
+- market-risk distributions and market-model sensitivity;
+- joint realized-volume / market-price risk;
+- deterministic result artifacts;
+- Policy Lab interoperability and policy-sensitive valuation.
 
-```text
-Observed evidence / source data
-            |
-            v
-     Policy Lab protocol
-  evidence + policy constraints
-            |
-            v
-claim-assessment-package.v0.1
-(admitted quantity + provenance)
-            |
-            v
-      SPK Derivatives
- pricing | Greeks | stress | P&L
-            |
-            v
-pricing-result-package.v0.1
-(model + assumptions + provenance)
-            |
-            v
- report | comparison | agent | evaluator
-```
+SPK does **not** decide whether evidence is true, whether a claim is legally valid, which governance policy should apply, whether a trade can execute, or whether a modeled result constitutes settlement.
 
-The boundary is intentional:
+## Policy Lab boundary
 
-- **Policy Lab establishes admissibility and governance context.**
-- **SPK Derivatives establishes quantitative consequences.**
+Policy Lab is the upstream authority layer. SPK consumes `policylab.claim_assessment_package.v0.1` packages using profile `policylab.energy_linked_claim.v0`.
 
-SPK Derivatives does **not** upgrade evidence quality, choose governance policy,
-recompute Policy Lab identities, or turn a blocked claim into a priceable
-exposure. If several policies admit different quantities, the caller must select
-the policy explicitly.
+SPK only prices quantities Policy Lab has already admitted. It fails closed on unsupported schemas/profiles, malformed identities, blocked decisions, missing supported quantities, unit mismatches, ambiguous multi-policy admission, and invalid assurance identifiers.
 
-The upstream Policy Lab implementation and protocol live in
-[`Spectating101/solarpunk-coin`](https://github.com/Spectating101/solarpunk-coin).
+A Policy Lab quantity is an authority-bounded `Q`. It is **not** a market price.
 
-## Install
+## Quantity and market price are separate
 
-Published package:
+The core market architecture separates:
 
-```bash
-pip install spk-derivatives
-```
+- `Q(t)`: physical / admitted quantity;
+- `P(t)`: market price;
+- contract terms: how `Q` and `P` map to a payoff.
 
-Current repository development version:
+A weather or metering observation may support physical quantity without implying that electricity, a PPA, a green certificate, or another market instrument follows the same stochastic process.
 
-```bash
-git clone https://github.com/Spectating101/spk-derivatives.git
-cd spk-derivatives
-pip install -e ".[dev,api]"
-```
-
-## Quick start
-
-### Price a derivative
-
-```python
-from spk_derivatives import BinomialTree
-
-tree = BinomialTree(
-    S0=0.035,
-    K=0.040,
-    T=1.0,
-    r=0.025,
-    sigma=0.42,
-    N=200,
-    payoff_type="call",
-)
-
-print(tree.price())
-```
-
-### Use a Policy Lab assessment
+### Forward and price models
 
 ```python
 from spk_derivatives import (
-    extract_admitted_exposure,
-    price_admitted_exposure,
+    black76_option_price,
+    bachelier_option_price,
+    ou_terminal_moments,
+    simulate_ou_terminal_prices,
 )
-
-exposure = extract_admitted_exposure(
-    "claim-assessment.json",
-    policy_id="your-policy-id",  # optional only when one policy is admitted
-)
-
-priced = price_admitted_exposure(
-    exposure,
-    S0=0.035,       # market/model value per admitted quantity unit
-    K=0.040,
-    T=1.0,
-    r=0.025,
-    sigma=0.42,
-    method="binomial",
-    steps=200,
-)
-
-print(priced.total_value)
-print(priced.decision_id)
-print(priced.evidence_hash)
 ```
 
-No unit conversion is performed implicitly: `S0` and `K` must be expressed per
-unit of the Policy Lab `supported_quantity`.
+- **Black-76** is available as a transparent positive-forward benchmark.
+- **Bachelier** supports normal-forward pricing and can represent negative power prices.
+- **Ornstein-Uhlenbeck** provides exact terminal moments and reproducible mean-reverting terminal scenarios. OU scenarios are not automatically a risk-neutral pricing measure.
 
-### Build a deterministic pricing artifact
+## Forward curves and calibration
 
 ```python
-from spk_derivatives import build_policy_pricing_package
-
-package = build_policy_pricing_package(
-    exposure,
-    priced,
-    S0=0.035,
-    K=0.040,
-    T=1.0,
-    r=0.025,
-    sigma=0.42,
-    steps=200,
-    assumptions=["Risk-neutral valuation"],
+from spk_derivatives import (
+    build_forward_curve,
+    estimate_normal_volatility,
+    estimate_lognormal_volatility,
+    calibrate_ou_from_series,
 )
 
-print(package["artifact_id"])
-print(package["package_content_id"])
+curve = build_forward_curve(
+    [(0.25, 410.0), (0.5, 425.0), (1.0, 440.0)],
+    currency="CNY",
+    quantity_unit="MWh",
+    observed_at_utc="2026-08-29T00:00:00Z",
+    source="declared market-data source",
+)
+
+six_month_forward = curve.forward_at(0.5)
 ```
 
-`artifact_id` represents the semantic pricing conclusion. `package_content_id`
-represents the complete package, including warnings and explanatory non-claims.
+Forward-curve interpolation is allowed only inside observed maturities. Extrapolation is rejected rather than silently manufactured.
+
+Calibration helpers expose:
+
+- historical normal price-change volatility;
+- historical positive-price log-return volatility;
+- diagnostic OU calibration through the exact AR(1) discretization.
+
+Historical calibration is descriptive evidence about a chosen sample, not proof of model adequacy or a risk-neutral measure.
+
+## Explicit unit conversions
+
+Core contract/risk functions reject unit mismatches. When conversion is required, it is a first-class object:
+
+```python
+from spk_derivatives import si_energy_conversion, convert_quantity
+
+conversion = si_energy_conversion("kWh", "MWh")
+converted = convert_quantity(1500.0, conversion)
+assert converted.target_value == 1.5
+```
+
+The built-in helper only converts exact SI watt-hour prefixes (`Wh`, `kWh`, `MWh`, `GWh`, `TWh`). Semantic units such as `kWh-claim`, certificates, credits, or entitlements are not assumed equivalent to physical energy.
+
+## Explicit contract layer
+
+```python
+from spk_derivatives import EnergyContract, settle_energy_contract
+
+ppa = EnergyContract(
+    "fixed-price",
+    currency="CNY",
+    quantity_unit="MWh",
+    fixed_price=380.0,
+)
+
+result = settle_energy_contract(
+    quantity=100.0,
+    quantity_unit="MWh",
+    market_price=420.0,
+    contract=ppa,
+)
+```
+
+Supported deterministic settlement rules:
+
+- merchant;
+- fixed-price;
+- floor;
+- cap;
+- collar.
+
+These functions perform scenario arithmetic. They do not create legal settlement authority or execute trades.
+
+## Market-risk distributions
+
+`spk_derivatives.scenario_risk` applies a market-price scenario set to one fixed quantity and contract and reports:
+
+- market-price mean / standard deviation;
+- contract-value mean / standard deviation;
+- 5th / 50th / 95th percentile contract values;
+- mean merchant-market value;
+- mean protection value relative to merchant exposure;
+- probability of negative contract value.
+
+For Policy Lab exposures, upstream assessment, claim, policy, decision, evidence hash, assurance, and package identities remain attached.
+
+## Joint volume-price risk
+
+Renewable volume and power price can be correlated without being the same stochastic object. `spk_derivatives.joint_risk` accepts paired realized-quantity and price scenarios.
+
+For Policy Lab-bound analysis, realized quantity scenarios may not exceed the selected policy's admitted quantity. The package refuses scenarios that silently expand upstream authority.
+
+The joint surface reports quantity statistics, market-price statistics, quantity/price correlation where defined, cap utilization, merchant/contract value distributions, downside quantiles, and protection value.
+
+## Policy sensitivity vs market-model sensitivity
+
+SPK deliberately separates two different questions.
+
+**Policy sensitivity:** hold market/model assumptions fixed and compare what different governance policies admit.
+
+```bash
+spk-derivatives policy-compare claim-assessment.json --json
+spk-derivatives policy-sweep claim-assessment.json \
+  --spot 100 --strike 100 --maturity 1 --rate 0.05 --volatility 0.20 \
+  --package-out policy-comparison.json --json
+```
+
+**Market-model sensitivity:** hold admitted quantity and contract fixed and compare different market-price scenario models.
+
+```python
+from spk_derivatives import compare_market_model_scenarios
+```
+
+Neither is evidence truth. Policy sensitivity is not market sensitivity; model sensitivity is not governance authority.
+
+## Deterministic artifacts
+
+SPK publishes three machine-readable result protocols:
+
+- `spk_derivatives.pricing_result_package.v0.1`;
+- `spk_derivatives.policy_comparison_package.v0.1`;
+- `spk_derivatives.market_risk_package.v0.1`.
+
+SPK-owned artifacts use deterministic canonical JSON and SHA-256 identities. They retain upstream Policy Lab identifiers rather than pretending SPK can recompute Policy Lab's governance authority.
+
+JSON Schemas are under `protocol/schema/`.
 
 ## CLI
-
-The package exposes a working `spk-derivatives` command:
 
 ```bash
 spk-derivatives info --json
 spk-derivatives preflight --json
-
 spk-derivatives policy-check claim-assessment.json --json
-
+spk-derivatives policy-compare claim-assessment.json --json
 spk-derivatives policy-price claim-assessment.json \
-  --spot 0.035 \
-  --strike 0.040 \
-  --maturity 1 \
-  --rate 0.025 \
-  --volatility 0.42 \
-  --method binomial \
-  --steps 200 \
-  --assumption "Risk-neutral valuation" \
-  --package-out pricing-result.json \
-  --json
-
+  --spot 100 --strike 100 --maturity 1 --rate 0.05 --volatility 0.20 \
+  --package-out pricing-result.json --json
+spk-derivatives policy-sweep claim-assessment.json \
+  --spot 100 --strike 100 --maturity 1 --rate 0.05 --volatility 0.20 \
+  --package-out policy-comparison.json --json
+spk-derivatives market-risk claim-assessment.json \
+  --prices prices.json --contract-type floor --currency USD --floor-price 0.10 \
+  --package-out market-risk.json --json
 spk-derivatives verify-result pricing-result.json --json
-
-spk-derivatives preflight \
-  --policy-package claim-assessment.json \
-  --result-package pricing-result.json \
-  --json
+spk-derivatives verify-comparison policy-comparison.json --json
+spk-derivatives verify-market-risk market-risk.json --json
 ```
 
-A blocked Policy Lab decision, malformed upstream identity, ambiguous admitted
-policy, invalid model boundary, or mutated pricing package exits with an error
-rather than being silently accepted.
+`market-risk --prices` expects a JSON array of market-price scenarios. The quantity unit comes from the selected admitted Policy Lab exposure; the command does not perform hidden unit conversion.
 
-## Canonical surfaces
+## Installation
 
-The repository now declares its externally meaningful surfaces in
-[`CURRENT_SURFACE.json`](CURRENT_SURFACE.json). This keeps package version,
-Policy Lab contract, result-artifact protocol, CLI surface, and validation paths
-explicit rather than relying on repository archaeology.
+From the repository:
 
-Current machine-readable contracts:
-
-```text
-Policy Lab input:
-  policylab.claim_assessment_package.v0.1
-  profile: policylab.energy_linked_claim.v0
-
-SPK output:
-  spk_derivatives.pricing_result_package.v0.1
-  schema: protocol/schema/pricing-result-package.v0.1.schema.json
+```bash
+pip install -e .
 ```
 
-## Package surface
+Optional API dependencies:
 
-```text
-energy_derivatives/spk_derivatives/
-├── binomial.py              # binomial pricing
-├── monte_carlo.py           # Monte-Carlo pricing
-├── sensitivities.py         # Greeks
-├── analysis.py              # stress/scenario/P&L utilities
-├── data_loader_*.py         # solar/wind/hydro + NASA
-├── location_guide.py        # geographic presets
-├── context_translator.py    # energy/value context
-├── results_manager.py       # validation/comparison/batch workflows
-├── policy_lab.py            # Policy Lab → admitted exposure boundary
-├── artifacts.py             # deterministic provenance-preserving result packages
-└── cli.py                   # preflight, policy bridge, pricing, verification
+```bash
+pip install -e ".[api]"
 ```
 
-Additional examples and notebooks live under `examples/`.
-
-## Policy-aware pricing contract
-
-The bridge validates the exact upstream contract SPK consumes:
-
-- claim-assessment schema and energy-linked profile,
-- lowercase SHA-256 assessment/package/evidence/decision identities,
-- evidence assurance `L0`–`L4`,
-- profile source/claim unit mapping,
-- canonical claim period,
-- admitted policy result and supported quantity,
-- explicit policy selection when more than one policy admits an exposure.
-
-This is intentionally narrower than reimplementing the entire Policy Lab
-validator. Canonical Policy Lab package production, governance semantics,
-constraint calculators, and Policy Lab identity recomputation remain upstream.
-
-Downstream pricing retains:
-
-- `assessment_id`
-- upstream `package_content_id`
-- `claim_id`
-- `policy_id`
-- `decision_id`
-- `evidence_hash`
-- `evidence_assurance`
-
-See [`docs/POLICY_LAB_INTEGRATION.md`](docs/POLICY_LAB_INTEGRATION.md).
-
-## Pricing artifact protocol
-
-The v0.1 SPK result package records:
-
-- authority/provenance,
-- admitted exposure and its units,
-- exact model inputs,
-- engine-specific reproducibility controls,
-- declared assumptions,
-- per-unit and total valuation,
-- warnings and non-claims,
-- semantic `artifact_id`,
-- whole-package `package_content_id`.
-
-This makes a downstream valuation traceable to both the exact Policy Lab
-decision that allowed the quantity and the exact quantitative configuration used
-to value it.
-
-See [`docs/PRICING_ARTIFACT_PROTOCOL.md`](docs/PRICING_ARTIFACT_PROTOCOL.md).
-
-## Adjacent SolarPunkCoin MVP
-
-This repository also contains the earlier **SolarPunkCoin** smart-contract
-proof-of-concept (`contracts/`, `test/`, `scripts/simulate_peg.py`) and associated
-energy-anchoring research. It remains useful as an experimental application of
-the broader research thesis, but the **PyPI/package surface is SPK Derivatives**.
-
-Relevant material:
-
-- `contracts/SolarPunkCoin.sol`
-- `SOLIDITY_QUICKSTART.md`
-- `MVP_SUMMARY.md`
-- `POLYGON_ARCHITECTURE_EXPLAINED.md`
-- `RESEARCH/`
+The package remains **research/beta**. The existing public PyPI release predates this `0.5` branch and should not be treated as equivalent to the current repository surface.
 
 ## Validation
 
-Run the Python test suite:
+The repository maintains Python tests across supported interpreter versions plus Solidity compile/test/security checks for the retained legacy reference contract surface.
 
-```bash
-pytest energy_derivatives/tests
-```
+The supported quantitative spine now has dedicated tests for:
 
-The suite covers model sanity checks, Monte-Carlo reproducibility, API behavior,
-data-loader fallback, reporting, Policy Lab fail-closed boundaries, deterministic
-artifact identities, mutation detection, CLI preflight, and repository surface
-consistency.
+- Policy Lab fail-closed interoperability;
+- deterministic pricing and comparison artifacts;
+- policy sensitivity and cherry-pick rejection;
+- Black-76 / Bachelier parity and bounds;
+- OU moments and reproducibility;
+- forward curves and calibration diagnostics;
+- explicit contract/unit boundaries;
+- explicit quantity conversions;
+- market-risk distributions;
+- joint volume-price authority caps;
+- market-risk artifact mutation detection;
+- CLI and current-surface contracts.
 
-The Solidity proof-of-concept also has Hardhat tests and a Slither security gate
-in GitHub Actions.
+## Research and use boundaries
 
-## Research boundary
+Appropriate uses include:
 
-The pricing engines use conventional quantitative-finance assumptions (including
-risk-neutral valuation and GBM-style dynamics in relevant paths). Renewable
-energy, physical delivery, policy constraints, basis risk, liquidity, and market
-microstructure can violate those assumptions. Treat model output as a testable
-analytical result, not as self-authenticating market truth.
+- research and teaching;
+- renewable-energy finance workshops;
+- policy-vs-market scenario exercises;
+- model-governance demonstrations;
+- prototype consulting analyses;
+- evaluation of evidence-bound quantitative workflows.
 
-The artifact layer improves **traceability and falsifiability**; it does not turn
-model assumptions into facts.
+Not claimed:
+
+- production trading readiness;
+- investment or hedging advice;
+- exchange or broker execution;
+- legal settlement;
+- reserve sufficiency;
+- regulatory approval;
+- liquidity or counterparty guarantees;
+- market-model correctness from historical calibration alone.
+
+See:
+
+- `docs/POLICY_LAB_INTEGRATION.md`
+- `docs/PRICING_ARTIFACT_PROTOCOL.md`
+- `docs/TRUST_BOUNDARY_AND_THREAT_MODEL.md`
+- `docs/MARKET_MODEL_ARCHITECTURE.md`
+- `docs/MARKET_CALIBRATION_AND_RISK.md`
+- `docs/EXTERNAL_EVALUATION.md`
+
+## Legacy SolarPunkCoin material
+
+The repository retains historical SolarPunkCoin/Solidity material as an adjacent reference application from the project's earlier research path. It is **not** the identity of the current SPK Derivatives quantitative package and is not required for the Python market-risk surface.
+
+Legacy deployment is manual-only. Ordinary SPK development does not deploy the retained contract.
 
 ## License
 
-MIT. See [`LICENSE`](LICENSE).
+MIT. See `LICENSE`.
