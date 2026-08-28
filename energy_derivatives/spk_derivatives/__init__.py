@@ -5,7 +5,8 @@ SPK Derivatives: Energy Derivatives Pricing Framework
 A quantitative framework for pricing energy derivatives (solar, wind, hydro)
 using binomial trees, Monte-Carlo simulation, forward-market models,
 policy-admitted exposure quantities, deterministic research artifacts, explicit
-contract settlement, market/model sensitivity, and policy-sensitivity analysis.
+contract settlement, joint volume-price risk, market/model sensitivity, and
+policy-sensitivity analysis.
 """
 
 __version__ = "0.5.0"
@@ -32,6 +33,8 @@ from . import market_calibration
 from . import energy_contracts
 from . import scenario_risk
 from . import market_artifacts
+from . import units
+from . import joint_risk
 
 # Optional: plots (requires matplotlib)
 try:
@@ -89,6 +92,15 @@ from .market_calibration import (
     estimate_normal_volatility,
 )
 
+# Explicit unit conversions
+from .units import (
+    ConvertedQuantity,
+    QuantityConversion,
+    UnitConversionError,
+    convert_quantity,
+    si_energy_conversion,
+)
+
 # Explicit energy-contract settlement
 from .energy_contracts import (
     ContractSettlement,
@@ -110,6 +122,15 @@ from .scenario_risk import (
     compare_market_model_scenarios,
     summarize_contract_distribution,
     summarize_policy_contract_distribution,
+)
+
+# Joint physical-volume and market-price scenarios
+from .joint_risk import (
+    JointExposureDistribution,
+    JointRiskError,
+    PolicyJointExposureDistribution,
+    summarize_joint_exposure,
+    summarize_policy_joint_exposure,
 )
 
 # Deterministic market-risk artifacts
@@ -222,8 +243,10 @@ __all__ = [
     "policy_analysis",
     "market_models",
     "market_calibration",
+    "units",
     "energy_contracts",
     "scenario_risk",
+    "joint_risk",
     "market_artifacts",
 
     # Convenience functions
@@ -255,6 +278,13 @@ __all__ = [
     "estimate_lognormal_volatility",
     "calibrate_ou_from_series",
 
+    # Explicit unit conversions
+    "UnitConversionError",
+    "QuantityConversion",
+    "ConvertedQuantity",
+    "convert_quantity",
+    "si_energy_conversion",
+
     # Explicit contract settlement
     "EnergyContractError",
     "EnergyContract",
@@ -273,6 +303,13 @@ __all__ = [
     "summarize_contract_distribution",
     "summarize_policy_contract_distribution",
     "compare_market_model_scenarios",
+
+    # Joint physical-volume / market-price risk
+    "JointRiskError",
+    "JointExposureDistribution",
+    "PolicyJointExposureDistribution",
+    "summarize_joint_exposure",
+    "summarize_policy_joint_exposure",
 
     # Market-risk artifacts
     "SPK_MARKET_RISK_SCHEMA",
