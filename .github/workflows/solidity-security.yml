@@ -23,11 +23,13 @@ jobs:
       - name: Install deps
         run: npm ci --legacy-peer-deps
 
-      - name: Run Slither
+      - name: Compile contracts
+        run: npx hardhat compile
+
+      - name: Run Slither on compiled Hardhat project
         uses: crytic/slither-action@v0.3.0
         with:
           target: .
-          solc-version: 0.8.20
-          node-version: 20
+          ignore-compile: true
           slither-args: "--filter-paths node_modules"
           fail-on: medium
