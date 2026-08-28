@@ -5,7 +5,7 @@ SPK Derivatives: Energy Derivatives Pricing Framework
 A quantitative framework for pricing energy derivatives (solar, wind, hydro)
 using binomial trees, Monte-Carlo simulation, forward-market models,
 policy-admitted exposure quantities, deterministic research artifacts, explicit
-contract settlement, and policy-sensitivity analysis.
+contract settlement, market/model sensitivity, and policy-sensitivity analysis.
 """
 
 __version__ = "0.5.0"
@@ -28,7 +28,10 @@ from . import policy_lab
 from . import artifacts
 from . import policy_analysis
 from . import market_models
+from . import market_calibration
 from . import energy_contracts
+from . import scenario_risk
+from . import market_artifacts
 
 # Optional: plots (requires matplotlib)
 try:
@@ -73,6 +76,19 @@ from .market_models import (
     simulate_ou_terminal_prices,
 )
 
+# Forward curves and market calibration
+from .market_calibration import (
+    ForwardCurve,
+    ForwardCurveNode,
+    MarketCalibrationError,
+    OUCalibration,
+    VolatilityEstimate,
+    build_forward_curve,
+    calibrate_ou_from_series,
+    estimate_lognormal_volatility,
+    estimate_normal_volatility,
+)
+
 # Explicit energy-contract settlement
 from .energy_contracts import (
     ContractSettlement,
@@ -82,6 +98,32 @@ from .energy_contracts import (
     settle_energy_contract,
     settle_policy_exposure,
     settled_unit_price,
+)
+
+# Scenario distributions and market-model sensitivity
+from .scenario_risk import (
+    MarketModelComparison,
+    MarketModelOutcome,
+    PolicySettlementDistribution,
+    ScenarioRiskError,
+    SettlementDistribution,
+    compare_market_model_scenarios,
+    summarize_contract_distribution,
+    summarize_policy_contract_distribution,
+)
+
+# Deterministic market-risk artifacts
+from .market_artifacts import (
+    MARKET_RISK_NON_CLAIMS,
+    SPK_MARKET_RISK_SCHEMA,
+    MarketRiskArtifactError,
+    build_market_risk_package,
+    compute_market_risk_artifact_id,
+    compute_market_risk_content_id,
+    load_market_risk_package,
+    market_risk_identity_body,
+    validate_market_risk_package,
+    write_market_risk_package,
 )
 
 # Multi-energy data loaders
@@ -179,7 +221,10 @@ __all__ = [
     "artifacts",
     "policy_analysis",
     "market_models",
+    "market_calibration",
     "energy_contracts",
+    "scenario_risk",
+    "market_artifacts",
 
     # Convenience functions
     "load_solar_parameters",
@@ -199,6 +244,17 @@ __all__ = [
     "ou_terminal_moments",
     "simulate_ou_terminal_prices",
 
+    # Forward curves and market calibration
+    "MarketCalibrationError",
+    "ForwardCurveNode",
+    "ForwardCurve",
+    "VolatilityEstimate",
+    "OUCalibration",
+    "build_forward_curve",
+    "estimate_normal_volatility",
+    "estimate_lognormal_volatility",
+    "calibrate_ou_from_series",
+
     # Explicit contract settlement
     "EnergyContractError",
     "EnergyContract",
@@ -207,6 +263,28 @@ __all__ = [
     "settled_unit_price",
     "settle_energy_contract",
     "settle_policy_exposure",
+
+    # Scenario distributions / model sensitivity
+    "ScenarioRiskError",
+    "SettlementDistribution",
+    "PolicySettlementDistribution",
+    "MarketModelOutcome",
+    "MarketModelComparison",
+    "summarize_contract_distribution",
+    "summarize_policy_contract_distribution",
+    "compare_market_model_scenarios",
+
+    # Market-risk artifacts
+    "SPK_MARKET_RISK_SCHEMA",
+    "MARKET_RISK_NON_CLAIMS",
+    "MarketRiskArtifactError",
+    "market_risk_identity_body",
+    "compute_market_risk_artifact_id",
+    "compute_market_risk_content_id",
+    "build_market_risk_package",
+    "load_market_risk_package",
+    "validate_market_risk_package",
+    "write_market_risk_package",
 
     # Multi-energy data loaders
     "EnergyDataLoader",
