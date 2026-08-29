@@ -9,6 +9,7 @@ The repository contains legacy research utilities, plotting helpers, early data 
 The following modules define the supported research/beta architecture:
 
 - `policy_lab` — fail-closed Policy Lab interoperability;
+- `policy_market_bridge` — explicit, deterministic claim-unit to market-quantity binding without semantic-unit laundering;
 - `artifacts` — deterministic pricing result packages;
 - `policy_analysis` — explicit governance-policy sensitivity;
 - `market_models` — Black-76, Bachelier, and Gaussian OU market models;
@@ -27,6 +28,21 @@ The following modules define the supported research/beta architecture:
 - `cli` — canonical command-line verification and policy/market workflows.
 
 These modules are the focus of current validation and API design.
+
+## Policy Lab consumer / market bridge policy
+
+SPK 0.5 pins the Policy Lab consumer contract in `POLICY_LAB_COMPATIBILITY.json`. The pin identifies the upstream repository revision and exact claim-assessment schema blob that this downstream consumer was reviewed against. A future Policy Lab schema/profile/blob is incompatible until deliberately reviewed.
+
+The bridge deliberately has two boundaries:
+
+1. `policy_lab` consumes an admitted Policy Lab claim quantity and preserves the upstream authority identities.
+2. `policy_market_bridge` determines whether that claim quantity can be represented in a market quantity unit for downstream risk work.
+
+No implicit semantic conversion is allowed. Literal physical `Wh/kWh/MWh/GWh/TWh` quantities can use the exact SI conversion path. Semantic units such as `kWh-claim`, `ENERGY_CLAIM_UNIT`, certificates, credits, or other claims cannot use that shortcut. They require a `declared-semantic-mapping` with an explicit factor, named mapping authority, reference, and explanation.
+
+The mapping receives its own deterministic `binding_id`. That identity proves which mapping was declared; it does not establish that the mapping is legally, empirically, or commercially authoritative.
+
+See `docs/POLICY_LAB_SPK_BRIDGE.md` and `protocol/schema/policy-market-binding.v0.1.schema.json`.
 
 ## Empirical adapter policy
 
@@ -77,6 +93,7 @@ The intended 1.0 gate is:
 4. market-specific empirical cases identify source, sample, transformation, intervention/filtering, timestamp, and calibration assumptions;
 5. empirical scenario inputs are source-hashed and bound into downstream deterministic artifacts;
 6. empirical model claims are scored on chronological holdouts against simple benchmarks before they can be promoted;
-7. compatibility modules are either promoted with equivalent validation or explicitly remain non-canonical.
+7. Policy Lab consumer compatibility is pinned, and semantic claim-to-market mappings are identity-bound rather than implicit;
+8. compatibility modules are either promoted with equivalent validation or explicitly remain non-canonical.
 
 This document is a scope statement, not a production-readiness claim. SPK Derivatives remains research/beta software.
