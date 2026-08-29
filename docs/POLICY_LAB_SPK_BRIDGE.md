@@ -7,6 +7,10 @@ The bridge has two separate contracts:
 1. **Policy authority contract** — Policy Lab emits `policylab.claim_assessment_package.v0.1` under `policylab.energy_linked_claim.v0`. SPK consumes only explicitly admitted quantities and retains the upstream assessment, package, claim, policy, decision, evidence, assurance, period, and unit identities.
 2. **Market quantity contract** — SPK refuses to assume that the admitted semantic claim unit is automatically a physical-energy or market-settlement unit. If downstream valuation requires a different quantity unit, the relationship must be represented explicitly as `spk_derivatives.policy_market_binding.v0.1`.
 
+A third artifact now proves that the two contracts can compose without collapsing their semantics:
+
+- `spk_derivatives.policy_bound_market_risk_package.v0.1` retains the original admitted claim, the exact mapping identity, the mapped market quantity, scenario-set identity, contract, and downstream risk output in one deterministic package.
+
 This preserves the chain:
 
 ```text
@@ -24,8 +28,10 @@ explicit policy-market quantity binding, if required
         ↓
 market data / scenario set / contract
         ↓
-SPK valuation and risk artifacts
+policy-bound market-risk package
 ```
+
+The final package does **not** overwrite the Policy Lab claim quantity with the mapped market quantity. Both remain visible as separate fields.
 
 ## Pinned upstream contract
 
@@ -98,6 +104,43 @@ The resulting `binding_id` covers the Policy Lab decision identities, admitted q
 
 Hashing the declaration does **not** make the declaration true. It makes the exact declaration reproducible and mutation-evident.
 
+## Downstream composition contract
+
+`policy_bound_market_risk` uses the binding as a mandatory intermediate object when the market quantity differs from the Policy Lab claim quantity.
+
+For example:
+
+```text
+Policy Lab
+1000 kWh-claim admitted
+        ↓
+declared semantic mapping
+factor = 0.001 MWh per kWh-claim
+mapping authority/reference explicitly named
+        ↓
+market exposure
+1.0 MWh
+        ↓
+AEMO-like scenario set
+AUD/MWh
+        ↓
+AUD/MWh contract + risk distribution
+```
+
+The resulting package still contains:
+
+```text
+admitted_claim.quantity = 1000
+admitted_claim.unit = kWh-claim
+market_binding.binding_id = <sha256>
+market_exposure.quantity = 1.0
+market_exposure.unit = MWh
+market.input.scenario_set_id = <sha256>
+contract.price_unit = AUD/MWh
+```
+
+Changing the upstream Policy Lab decision, mapping factor/reference, mapped market quantity, scenario set, contract, or risk result changes the appropriate deterministic identity or fails validation.
+
 ## Research and Gauntlet significance
 
 The bridge makes Policy Lab's portable package testable as a real interoperability boundary rather than merely an export format.
@@ -112,6 +155,8 @@ A downstream financial model cannot silently erase upstream governance distincti
 - changed market scenarios → changed scenario identity;
 - changed model → model sensitivity, not evidence truth.
 
+The bound market-risk package adds a particularly useful evaluator property: successful composition requires every semantic transition to be visible. A reviewer can inspect the original claim quantity, the separate mapping claim, and the downstream market consequence independently.
+
 This is useful judge-facing evidence because the architecture demonstrates both **successful composition** and **refusal to compose when authority is insufficient**.
 
 ## Commercial significance
@@ -124,6 +169,8 @@ SPK Derivatives: what economic consequences follow under declared market assumpt
 ```
 
 The systems remain independently usable. Policy Lab does not depend on SPK, and SPK can consume other authority surfaces in the future if they provide an explicit compatible contract.
+
+For a market-specific pilot, the commercialization question is no longer "can this Python option package be sold?" It becomes "is there a buyer for a workflow that preserves evidence authority, makes claim-to-market assumptions explicit, and quantifies the resulting contract exposure?"
 
 ## Non-claims
 
