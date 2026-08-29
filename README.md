@@ -1,223 +1,286 @@
-# SolarPunkCoin MVP
+# SPK Derivatives
 
-**Energy-backed stablecoin smart contract on Polygon (EVM).**
+**Policy-aware quantitative pricing, market-risk, and scenario tooling for renewable-energy exposures.**
 
-A working proof-of-concept for an institutional-grade cryptocurrency anchored to renewable energy surplus, implementing PI-control-based peg stabilization and oracle-gated minting.
+SPK Derivatives is a research/beta Python framework for separating and analyzing the distinct layers of an energy-linked financial conclusion:
 
-## What's Included
+**evidence → governance policy → admitted physical quantity → market data/model → contract payoff → quantitative value/risk**
 
+The package began as a solar-energy derivatives research prototype. The current `0.5` line makes the boundaries explicit rather than treating renewable output, market price, policy authority, and settlement as one object.
+
+## What SPK owns
+
+SPK Derivatives owns downstream quantitative work:
+
+- binomial and Monte-Carlo benchmark pricing;
+- Black-76 and Bachelier forward-option benchmarks;
+- Ornstein-Uhlenbeck mean-reverting market-price scenarios;
+- provenance-bearing forward curves and transparent calibration diagnostics;
+- explicit merchant, fixed-price, floor, cap, and collar settlement arithmetic;
+- market-risk distributions and market-model sensitivity;
+- joint realized-volume / market-price risk;
+- deterministic result artifacts;
+- Policy Lab interoperability and policy-sensitive valuation.
+
+SPK does **not** decide whether evidence is true, whether a claim is legally valid, which governance policy should apply, whether a trade can execute, or whether a modeled result constitutes settlement.
+
+## Policy Lab boundary
+
+Policy Lab is the upstream authority layer. SPK consumes `policylab.claim_assessment_package.v0.1` packages using profile `policylab.energy_linked_claim.v0`.
+
+SPK only prices quantities Policy Lab has already admitted. It fails closed on unsupported schemas/profiles, malformed identities, blocked decisions, missing supported quantities, unit mismatches, ambiguous multi-policy admission, and invalid assurance identifiers.
+
+A Policy Lab quantity is an authority-bounded `Q`. It is **not** a market price.
+
+## Quantity and market price are separate
+
+The core market architecture separates:
+
+- `Q(t)`: physical / admitted quantity;
+- `P(t)`: market price;
+- contract terms: how `Q` and `P` map to a payoff.
+
+A weather or metering observation may support physical quantity without implying that electricity, a PPA, a green certificate, or another market instrument follows the same stochastic process.
+
+### Forward and price models
+
+```python
+from spk_derivatives import (
+    black76_option_price,
+    bachelier_option_price,
+    ou_terminal_moments,
+    simulate_ou_terminal_prices,
+)
 ```
-.
-├── contracts/SolarPunkCoin.sol       # Main ERC-20 stablecoin contract (400 lines)
-├── test/SolarPunkCoin.test.js        # 32 unit tests (all passing)
-├── scripts/
-│   ├── deploy.js                     # Automated deployment to Polygon Mumbai
-│   └── simulate_peg.py               # 1000-day peg stabilization simulation
-├── hardhat.config.js                 # Hardhat setup (Solidity 0.8.20)
-├── package.json                      # Node.js dependencies
-│
-├── RESEARCH/                         # Research papers (background)
-│   ├── CEIR-Trifecta.md
-│   ├── Final-Iteration.md
-│   ├── Quasi-SD-CEIR.md
-│   └── Empirical-Milestone.md
-│
-└── docs/                             # Essential documentation
-    ├── README.md (this file)
-    ├── SOLIDITY_QUICKSTART.md        # How to test/deploy
-    ├── MVP_SUMMARY.md                # 1-page grant summary
-    ├── POLYGON_ARCHITECTURE_EXPLAINED.md
-    └── REPO_STRUCTURE.md
+
+- **Black-76** is available as a transparent positive-forward benchmark.
+- **Bachelier** supports normal-forward pricing and can represent negative power prices.
+- **Ornstein-Uhlenbeck** provides exact terminal moments and reproducible mean-reverting terminal scenarios. OU scenarios are not automatically a risk-neutral pricing measure.
+
+## Forward curves and calibration
+
+```python
+from spk_derivatives import (
+    build_forward_curve,
+    estimate_normal_volatility,
+    estimate_lognormal_volatility,
+    calibrate_ou_from_series,
+)
+
+curve = build_forward_curve(
+    [(0.25, 410.0), (0.5, 425.0), (1.0, 440.0)],
+    currency="CNY",
+    quantity_unit="MWh",
+    observed_at_utc="2026-08-29T00:00:00Z",
+    source="declared market-data source",
+)
+
+six_month_forward = curve.forward_at(0.5)
 ```
 
-## Key Features
+Forward-curve interpolation is allowed only inside observed maturities. Extrapolation is rejected rather than silently manufactured.
 
-### ✅ Rule A: Surplus-Only Minting
-- Oracle-gated: Only mint when backed by verified renewable surplus (kWh)
-- Fee-based: 0.1% minting fee (seigniorage)
-- Access-controlled: Only MINTER role can call
+Calibration helpers expose:
 
-### ✅ Rule B: Intrinsic Redemption
-- Holders burn SPK → receive utility credits (kWh equivalent)
-- 0.2% redemption fee
-- Guarantees minimum intrinsic value
+- historical normal price-change volatility;
+- historical positive-price log-return volatility;
+- diagnostic OU calibration through the exact AR(1) discretization.
 
-### ✅ Rule D: PI Control Peg Stabilization
-- **Proportional term:** Immediate response to price deviation from $1.00 peg
-- **Integral term:** Corrects steady-state error over time
-- **Conservative limits:** Max 1% supply adjustment per call (safety first)
-- Mint/burn only when needed to push price toward target
+Historical calibration is descriptive evidence about a chosen sample, not proof of model adequacy or a risk-neutral measure.
 
-### ✅ Rule E: Grid Stress Safeguard
-- Oracle can pause minting if grid is unstable
-- Emergency pause/unpause by PAUSER role
-- Prevents destabilizing minting during peak demand
+## Explicit unit conversions
 
-## Is This Real Blockchain?
+Core contract/risk functions reject unit mismatches. When conversion is required, it is a first-class object:
 
-**YES, 100% real Ethereum/Polygon code:**
+```python
+from spk_derivatives import si_energy_conversion, convert_quantity
 
-- ✅ **Solidity 0.8.20** – Actual smart contract language (compiles to EVM bytecode)
-- ✅ **OpenZeppelin** – Battle-tested libraries (ERC-20, AccessControl, Pausable)
-- ✅ **ethers.js** – Real blockchain interaction library
-- ✅ **Hardhat** – Industry-standard Ethereum development environment
-- ✅ **32 passing unit tests** – Contract logic verified locally
+conversion = si_energy_conversion("kWh", "MWh")
+converted = convert_quantity(1500.0, conversion)
+assert converted.target_value == 1.5
+```
 
-**Status:**
-- ✅ Compiled successfully
-- ✅ All tests pass locally
-- ⏳ Draft/MVP (not mainnet—testnet ready)
-- ⏳ Not published (easily modifiable)
-- ⏳ No real $ at stake (local testing only)
+The built-in helper only converts exact SI watt-hour prefixes (`Wh`, `kWh`, `MWh`, `GWh`, `TWh`). Semantic units such as `kWh-claim`, certificates, credits, or entitlements are not assumed equivalent to physical energy.
 
-## Getting Started
+## Explicit contract layer
 
-### Prerequisites
+```python
+from spk_derivatives import EnergyContract, settle_energy_contract
+
+ppa = EnergyContract(
+    "fixed-price",
+    currency="CNY",
+    quantity_unit="MWh",
+    fixed_price=380.0,
+)
+
+result = settle_energy_contract(
+    quantity=100.0,
+    quantity_unit="MWh",
+    market_price=420.0,
+    contract=ppa,
+)
+```
+
+Supported deterministic settlement rules:
+
+- merchant;
+- fixed-price;
+- floor;
+- cap;
+- collar.
+
+These functions perform scenario arithmetic. They do not create legal settlement authority or execute trades.
+
+## Market-risk distributions
+
+`spk_derivatives.scenario_risk` applies a market-price scenario set to one fixed quantity and contract and reports:
+
+- market-price mean / standard deviation;
+- contract-value mean / standard deviation;
+- 5th / 50th / 95th percentile contract values;
+- mean merchant-market value;
+- mean protection value relative to merchant exposure;
+- probability of negative contract value.
+
+For Policy Lab exposures, upstream assessment, claim, policy, decision, evidence hash, assurance, and package identities remain attached.
+
+## Joint volume-price risk
+
+Renewable volume and power price can be correlated without being the same stochastic object. `spk_derivatives.joint_risk` accepts paired realized-quantity and price scenarios.
+
+For Policy Lab-bound analysis, realized quantity scenarios may not exceed the selected policy's admitted quantity. The package refuses scenarios that silently expand upstream authority.
+
+The joint surface reports quantity statistics, market-price statistics, quantity/price correlation where defined, cap utilization, merchant/contract value distributions, downside quantiles, and protection value.
+
+## Policy sensitivity vs market-model sensitivity
+
+SPK deliberately separates two different questions.
+
+**Policy sensitivity:** hold market/model assumptions fixed and compare what different governance policies admit.
+
 ```bash
-node --version  # v18+
-npm --version   # v9+
+spk-derivatives policy-compare claim-assessment.json --json
+spk-derivatives policy-sweep claim-assessment.json \
+  --spot 100 --strike 100 --maturity 1 --rate 0.05 --volatility 0.20 \
+  --package-out policy-comparison.json --json
 ```
 
-### Install & Test
-```bash
-# Install dependencies
-npm install --legacy-peer-deps
+**Market-model sensitivity:** hold admitted quantity and contract fixed and compare different market-price scenario models.
 
-# Compile smart contract
-npx hardhat compile
-
-# Run 32 unit tests
-npx hardhat test
+```python
+from spk_derivatives import compare_market_model_scenarios
 ```
 
-**Expected output:**
-```
-  32 passing (1.0s)
-```
+Neither is evidence truth. Policy sensitivity is not market sensitivity; model sensitivity is not governance authority.
 
-### Deploy to Polygon Mumbai Testnet
+## Deterministic artifacts
 
-1. **Get test MATIC**
-   ```bash
-   # Visit: https://faucet.polygon.technology/
-   # Paste your wallet address, claim free test tokens
-   ```
+SPK publishes three machine-readable result protocols:
 
-2. **Create `.env` from template**
-   ```bash
-   cp .env.example .env
-   # Edit .env: add your private key
-   ```
+- `spk_derivatives.pricing_result_package.v0.1`;
+- `spk_derivatives.policy_comparison_package.v0.1`;
+- `spk_derivatives.market_risk_package.v0.1`.
 
-3. **Deploy**
-   ```bash
-   npx hardhat run scripts/deploy.js --network mumbai
-   ```
+SPK-owned artifacts use deterministic canonical JSON and SHA-256 identities. They retain upstream Policy Lab identifiers rather than pretending SPK can recompute Policy Lab's governance authority.
 
-   Output will show your live contract address.
+JSON Schemas are under `protocol/schema/`.
 
-### Run Simulation
+## CLI
 
 ```bash
-# Python 3.8+, with dependencies
-python scripts/simulate_peg.py
-
-# Generates:
-# - spk_simulation.png (6-panel analysis chart)
-# - spk_simulation_results.csv (day-by-day metrics)
+spk-derivatives info --json
+spk-derivatives preflight --json
+spk-derivatives policy-check claim-assessment.json --json
+spk-derivatives policy-compare claim-assessment.json --json
+spk-derivatives policy-price claim-assessment.json \
+  --spot 100 --strike 100 --maturity 1 --rate 0.05 --volatility 0.20 \
+  --package-out pricing-result.json --json
+spk-derivatives policy-sweep claim-assessment.json \
+  --spot 100 --strike 100 --maturity 1 --rate 0.05 --volatility 0.20 \
+  --package-out policy-comparison.json --json
+spk-derivatives market-risk claim-assessment.json \
+  --prices prices.json --contract-type floor --currency USD --floor-price 0.10 \
+  --package-out market-risk.json --json
+spk-derivatives verify-result pricing-result.json --json
+spk-derivatives verify-comparison policy-comparison.json --json
+spk-derivatives verify-market-risk market-risk.json --json
 ```
 
-## Architecture
+`market-risk --prices` expects a JSON array of market-price scenarios. The quantity unit comes from the selected admitted Policy Lab exposure; the command does not perform hidden unit conversion.
 
-### Contract Design
-- **Standard:** ERC-20 + OpenZeppelin extensions
-- **Roles:** MINTER (mint from surplus), ORACLE (update price), PAUSER (emergency)
-- **Parameters:** Tunable peg control gains (proportional/integral)
-- **Gas costs:** 45–95K per function call (reasonable for Polygon)
+## Installation
 
-### Peg Control Algorithm
-```
-1. Oracle submits current price P
-2. Calculate deviation: delta = (P - $1.00) / $1.00
-3. Proportional action: proportional_adjustment = -1% × delta
-4. Integral action: integral_adjustment = -0.5% × accumulated_error
-5. Total adjustment: clamped to ±1% of supply per call
-6. If adjustment > 0: mint new SPK (increase supply → push price down)
-7. If adjustment < 0: burn SPK (decrease supply → push price up)
+From the repository:
+
+```bash
+pip install -e .
 ```
 
-### Safety Features
-- ✅ Supply cap: 1 billion SPK max
-- ✅ Balance checks before burns
-- ✅ Oracle staleness checks (8 hours default)
-- ✅ Emergency pause mechanism
-- ✅ Fee collection for governance/reserve
-- ✅ Whitelist-ready for DAO upgrade
+Optional API dependencies:
 
-## Test Coverage
+```bash
+pip install -e ".[api]"
+```
 
-| Category | Tests | Status |
-|----------|-------|--------|
-| Deployment | 2 | ✅ |
-| Minting (Rule A) | 5 | ✅ |
-| Peg Stabilization (Rule D) | 5 | ✅ |
-| Redemption (Rule B) | 4 | ✅ |
-| Grid Safety (Rule E) | 3 | ✅ |
-| Parameters | 4 | ✅ |
-| View Functions | 3 | ✅ |
-| Emergency | 3 | ✅ |
-| Integration | 2 | ✅ |
-| **TOTAL** | **32** | **✅** |
+The package remains **research/beta**. The existing public PyPI release predates this `0.5` branch and should not be treated as equivalent to the current repository surface.
 
-## Next Steps
+## Validation
 
-### MVP Phase (This Week)
-- [ ] Deploy to Mumbai testnet
-- [ ] Get contract address from PolygonScan
-- [ ] Test live minting/redemption
-- [ ] Apply to Gitcoin/Polygon grants
+The repository maintains Python tests across supported interpreter versions plus Solidity compile/test/security checks for the retained legacy reference contract surface.
 
-### v1.0 Phase (If Funded)
-- [ ] Integrate real oracle (Chainlink)
-- [ ] Connect CAISO/Taipower data
-- [ ] Add USDC reserve backing
-- [ ] DAO governance setup
-- [ ] Security audit
+The supported quantitative spine now has dedicated tests for:
 
-### Production (Before Mainnet)
-- [ ] Full security audit ($50–100K)
-- [ ] Legal review
-- [ ] Liquidity providers onboarding
-- [ ] Insurance coverage
+- Policy Lab fail-closed interoperability;
+- deterministic pricing and comparison artifacts;
+- policy sensitivity and cherry-pick rejection;
+- Black-76 / Bachelier parity and bounds;
+- OU moments and reproducibility;
+- forward curves and calibration diagnostics;
+- explicit contract/unit boundaries;
+- explicit quantity conversions;
+- market-risk distributions;
+- joint volume-price authority caps;
+- market-risk artifact mutation detection;
+- CLI and current-surface contracts.
 
-## Documentation
+## Research and use boundaries
 
-- **SOLIDITY_QUICKSTART.md** – How to test, deploy, modify contract
-- **MVP_SUMMARY.md** – 1-page grant application template
-- **POLYGON_ARCHITECTURE_EXPLAINED.md** – Why Polygon vs custom chain
-- **REPO_STRUCTURE.md** – File organization guide
+Appropriate uses include:
 
-## Research Background
+- research and teaching;
+- renewable-energy finance workshops;
+- policy-vs-market scenario exercises;
+- model-governance demonstrations;
+- prototype consulting analyses;
+- evaluation of evidence-bound quantitative workflows.
 
-The SolarPunkCoin MVP is based on 18+ months of research into energy-backed cryptocurrencies:
+Not claimed:
 
-- **CEIR-Trifecta.md** – Empirical study: Does energy cost anchor crypto value?
-- **Final-Iteration.md** – Design document: 10 institutional rules (A–J)
-- **Quasi-SD-CEIR.md** – Supply-demand + sentiment framework
-- **Empirical-Milestone.md** – Spring 2025 research proposal
+- production trading readiness;
+- investment or hedging advice;
+- exchange or broker execution;
+- legal settlement;
+- reserve sufficiency;
+- regulatory approval;
+- liquidity or counterparty guarantees;
+- market-model correctness from historical calibration alone.
 
-See `RESEARCH/` folder for full papers.
+See:
+
+- `docs/POLICY_LAB_INTEGRATION.md`
+- `docs/PRICING_ARTIFACT_PROTOCOL.md`
+- `docs/TRUST_BOUNDARY_AND_THREAT_MODEL.md`
+- `docs/MARKET_MODEL_ARCHITECTURE.md`
+- `docs/MARKET_CALIBRATION_AND_RISK.md`
+- `docs/EXTERNAL_EVALUATION.md`
+
+## Legacy SolarPunkCoin material
+
+The repository retains historical SolarPunkCoin/Solidity material as an adjacent reference application from the project's earlier research path. It is **not** the identity of the current SPK Derivatives quantitative package and is not required for the Python market-risk surface.
+
+Legacy deployment is manual-only. Ordinary SPK development does not deploy the retained contract.
 
 ## License
 
-MIT (see LICENSE file)
-
-## Questions?
-
-This is a **draft MVP**. All code is:
-- ✅ Real blockchain code (Solidity + ethers.js)
-- ✅ Tested locally (32/32 passing)
-- ✅ Safe for experimentation (testnet only)
-- ⏳ Ready for community feedback
-
-Not for production use without security audit.
+MIT. See `LICENSE`.

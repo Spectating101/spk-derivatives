@@ -1,0 +1,182 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://spectating101.github.io/spk-derivatives/schema/market-risk-package.v0.1.schema.json",
+  "title": "SPK Derivatives Market Risk Package v0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "artifact_id",
+    "package_content_id",
+    "authority",
+    "exposure",
+    "market",
+    "contract",
+    "risk",
+    "warnings",
+    "non_claims",
+    "verification"
+  ],
+  "properties": {
+    "schema": {"const": "spk_derivatives.market_risk_package.v0.1"},
+    "artifact_id": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "package_content_id": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "authority": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "kind",
+        "source_schema",
+        "profile_id",
+        "assessment_id",
+        "source_package_content_id",
+        "claim_id",
+        "case_id",
+        "policy_id",
+        "decision_id",
+        "evidence_hash",
+        "evidence_assurance"
+      ],
+      "properties": {
+        "kind": {"const": "policy-lab-claim-assessment"},
+        "source_schema": {"const": "policylab.claim_assessment_package.v0.1"},
+        "profile_id": {"const": "policylab.energy_linked_claim.v0"},
+        "assessment_id": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+        "source_package_content_id": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+        "claim_id": {"type": "string", "minLength": 1},
+        "case_id": {"type": "string", "minLength": 1},
+        "policy_id": {"type": "string", "minLength": 1},
+        "decision_id": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+        "evidence_hash": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+        "evidence_assurance": {"type": "string", "pattern": "^L[0-4]$"}
+      }
+    },
+    "exposure": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["subject", "admitted_quantity", "quantity_unit", "period_utc"],
+      "properties": {
+        "subject": {"type": "string"},
+        "admitted_quantity": {"type": "number", "minimum": 0},
+        "quantity_unit": {"type": "string", "minLength": 1},
+        "period_utc": {
+          "type": "object",
+          "required": ["start", "end"],
+          "properties": {
+            "start": {"type": "string", "minLength": 1},
+            "end": {"type": "string", "minLength": 1}
+          }
+        }
+      }
+    },
+    "market": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["input", "scenario_model"],
+      "properties": {
+        "input": {
+          "type": "object",
+          "properties": {
+            "kind": {"type": "string", "minLength": 1},
+            "schema": {"type": "string"},
+            "scenario_set_id": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+            "source": {"type": "string", "minLength": 1},
+            "source_hash": {
+              "oneOf": [
+                {"type": "null"},
+                {"type": "string", "pattern": "^[a-f0-9]{64}$"}
+              ]
+            },
+            "observed_at_utc": {"type": "string", "minLength": 1},
+            "price_unit": {"type": "string", "minLength": 1}
+          },
+          "allOf": [
+            {
+              "if": {
+                "properties": {"kind": {"const": "scenario-set"}},
+                "required": ["kind"]
+              },
+              "then": {
+                "required": [
+                  "kind",
+                  "schema",
+                  "scenario_set_id",
+                  "source",
+                  "source_hash",
+                  "observed_at_utc",
+                  "price_unit"
+                ],
+                "properties": {
+                  "schema": {"const": "spk_derivatives.scenario_set.v0.1"}
+                }
+              }
+            }
+          ]
+        },
+        "scenario_model": {
+          "type": "object",
+          "properties": {
+            "id": {"type": "string", "minLength": 1},
+            "parameters": {"type": "object"},
+            "seed": {"type": ["integer", "null"]},
+            "scenario_count": {"type": "integer", "minimum": 2}
+          },
+          "required": ["id"]
+        }
+      }
+    },
+    "contract": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["contract_type", "currency", "quantity_unit", "price_unit"],
+      "properties": {
+        "contract_type": {
+          "enum": ["merchant", "fixed-price", "floor", "cap", "collar"]
+        },
+        "currency": {"type": "string", "minLength": 1},
+        "quantity_unit": {"type": "string", "minLength": 1},
+        "price_unit": {"type": "string", "minLength": 1}
+      }
+    },
+    "risk": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "contract_type",
+        "quantity",
+        "quantity_unit",
+        "currency",
+        "price_unit",
+        "scenarios",
+        "market_price_mean",
+        "market_price_std",
+        "contract_value_mean",
+        "contract_value_std",
+        "contract_value_p05",
+        "contract_value_p50",
+        "contract_value_p95",
+        "market_value_mean",
+        "protection_value_mean",
+        "probability_negative_contract_value"
+      ],
+      "properties": {
+        "quantity": {"type": "number", "minimum": 0},
+        "quantity_unit": {"type": "string", "minLength": 1},
+        "currency": {"type": "string", "minLength": 1},
+        "price_unit": {"type": "string", "minLength": 1},
+        "scenarios": {"type": "integer", "minimum": 2},
+        "probability_negative_contract_value": {"type": "number", "minimum": 0, "maximum": 1}
+      }
+    },
+    "warnings": {"type": "array", "items": {"type": "string"}},
+    "non_claims": {"type": "array", "items": {"type": "string"}},
+    "verification": {
+      "type": "object",
+      "required": ["algorithm", "canonicalization", "artifact_identity", "package_content_identity"],
+      "properties": {
+        "algorithm": {"const": "SHA-256"},
+        "canonicalization": {"const": "python-json-sort-keys-compact-utf8-v0.1"}
+      }
+    }
+  }
+}

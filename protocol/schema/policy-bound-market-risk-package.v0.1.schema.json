@@ -1,0 +1,108 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://spectating101.github.io/spk-derivatives/schema/policy-bound-market-risk-package.v0.1.schema.json",
+  "title": "SPK Derivatives Policy-Bound Market Risk Package v0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "artifact_id",
+    "package_content_id",
+    "authority",
+    "admitted_claim",
+    "market_binding",
+    "market_exposure",
+    "market",
+    "contract",
+    "risk",
+    "warnings",
+    "non_claims",
+    "verification"
+  ],
+  "properties": {
+    "schema": {"const": "spk_derivatives.policy_bound_market_risk_package.v0.1"},
+    "artifact_id": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "package_content_id": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "authority": {
+      "type": "object",
+      "required": [
+        "kind",
+        "source_schema",
+        "profile_id",
+        "assessment_id",
+        "source_package_content_id",
+        "claim_id",
+        "case_id",
+        "policy_id",
+        "decision_id",
+        "external_reading",
+        "evidence_hash",
+        "evidence_assurance"
+      ]
+    },
+    "admitted_claim": {
+      "type": "object",
+      "required": ["subject", "quantity", "unit", "period_utc"]
+    },
+    "market_binding": {
+      "type": "object",
+      "required": [
+        "schema",
+        "binding_id",
+        "assessment_id",
+        "source_package_content_id",
+        "claim_id",
+        "policy_id",
+        "decision_id",
+        "evidence_hash",
+        "evidence_assurance",
+        "admitted_quantity",
+        "claim_unit",
+        "market_quantity",
+        "market_quantity_unit",
+        "factor",
+        "basis_kind",
+        "authority",
+        "reference",
+        "semantics",
+        "period_start_utc",
+        "period_end_utc",
+        "non_claims"
+      ],
+      "properties": {
+        "schema": {"const": "spk_derivatives.policy_market_binding.v0.1"},
+        "binding_id": {"type": "string", "pattern": "^[a-f0-9]{64}$"}
+      }
+    },
+    "market_exposure": {
+      "type": "object",
+      "required": ["quantity", "unit"],
+      "properties": {
+        "quantity": {"type": "number", "minimum": 0},
+        "unit": {"type": "string", "minLength": 1}
+      }
+    },
+    "market": {
+      "type": "object",
+      "required": ["input", "scenario_model"]
+    },
+    "contract": {
+      "type": "object",
+      "required": ["contract_type", "currency", "quantity_unit", "price_unit"]
+    },
+    "risk": {
+      "type": "object",
+      "required": ["quantity", "quantity_unit", "currency", "price_unit", "scenarios"]
+    },
+    "warnings": {"type": "array", "items": {"type": "string"}},
+    "non_claims": {"type": "array", "minItems": 1, "items": {"type": "string"}},
+    "verification": {
+      "type": "object",
+      "required": ["algorithm", "canonicalization", "artifact_identity", "package_content_identity"],
+      "properties": {
+        "algorithm": {"const": "SHA-256"},
+        "canonicalization": {"const": "python-json-sort-keys-compact-utf8-v0.1"}
+      }
+    }
+  }
+}

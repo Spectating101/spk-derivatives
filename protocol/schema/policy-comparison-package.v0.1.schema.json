@@ -1,0 +1,136 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Spectating101/spk-derivatives/blob/main/protocol/schema/policy-comparison-package.v0.1.schema.json",
+  "title": "SPK Derivatives Policy Comparison Package v0.1",
+  "type": "object",
+  "required": [
+    "schema",
+    "comparison_id",
+    "package_content_id",
+    "authority",
+    "policy_outcomes",
+    "model",
+    "priced_outcomes",
+    "comparison",
+    "non_claims"
+  ],
+  "properties": {
+    "schema": {
+      "const": "spk_derivatives.policy_comparison_package.v0.1"
+    },
+    "comparison_id": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "package_content_id": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "authority": {
+      "type": "object",
+      "required": [
+        "source_schema",
+        "profile_id",
+        "assessment_id",
+        "source_package_content_id",
+        "claim_id",
+        "case_id",
+        "evidence_hash",
+        "evidence_assurance"
+      ],
+      "properties": {
+        "source_schema": {"const": "policylab.claim_assessment_package.v0.1"},
+        "profile_id": {"const": "policylab.energy_linked_claim.v0"},
+        "assessment_id": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+        "source_package_content_id": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+        "claim_id": {"type": "string", "minLength": 1},
+        "case_id": {"type": "string", "minLength": 1},
+        "evidence_hash": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+        "evidence_assurance": {"type": "string", "pattern": "^L[0-4]$"}
+      },
+      "additionalProperties": true
+    },
+    "policy_outcomes": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": [
+          "policy_id",
+          "policy_name",
+          "decision_id",
+          "external_reading",
+          "admitted",
+          "supported_quantity",
+          "quantity_unit",
+          "binding_calculators",
+          "blocking_calculators",
+          "reasons"
+        ],
+        "properties": {
+          "policy_id": {"type": "string", "minLength": 1},
+          "policy_version": {"type": ["string", "null"]},
+          "policy_name": {"type": "string", "minLength": 1},
+          "decision_id": {"type": "string", "minLength": 1},
+          "external_reading": {"type": "string", "minLength": 1},
+          "admitted": {"type": "boolean"},
+          "supported_quantity": {"type": ["number", "null"], "minimum": 0},
+          "quantity_unit": {"type": ["string", "null"]},
+          "binding_calculators": {"type": "array", "items": {"type": "string"}},
+          "blocking_calculators": {"type": "array", "items": {"type": "string"}},
+          "reasons": {"type": "array", "items": {"type": "string"}}
+        },
+        "additionalProperties": false
+      }
+    },
+    "model": {
+      "type": "object",
+      "required": ["engine", "inputs", "reproducibility", "assumptions"],
+      "additionalProperties": true
+    },
+    "priced_outcomes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "policy_id",
+          "decision_id",
+          "admitted_quantity",
+          "quantity_unit",
+          "unit_price",
+          "total_value",
+          "method"
+        ],
+        "properties": {
+          "policy_id": {"type": "string", "minLength": 1},
+          "decision_id": {"type": "string", "minLength": 1},
+          "admitted_quantity": {"type": "number", "minimum": 0},
+          "quantity_unit": {"type": "string", "minLength": 1},
+          "unit_price": {"type": "number"},
+          "total_value": {"type": "number"},
+          "method": {"enum": ["binomial", "monte-carlo"]}
+        },
+        "additionalProperties": false
+      }
+    },
+    "comparison": {
+      "type": "object",
+      "required": [
+        "admitted_policy_count",
+        "blocked_policy_count",
+        "minimum_admitted_quantity",
+        "maximum_admitted_quantity",
+        "minimum_total_value",
+        "maximum_total_value",
+        "interpretation"
+      ],
+      "additionalProperties": true
+    },
+    "non_claims": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"type": "string", "minLength": 1}
+    }
+  },
+  "additionalProperties": false
+}

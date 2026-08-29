@@ -2,16 +2,14 @@ name: solidity-tests
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   pull_request:
-    branches: [ main ]
+    branches: [main]
 
 jobs:
   solidity:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: blockchain
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -20,9 +18,10 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
+          cache: npm
 
       - name: Install
-        run: npm install
+        run: npm ci --legacy-peer-deps
 
       - name: Test
         run: npx hardhat test

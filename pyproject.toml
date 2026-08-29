@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "spk-derivatives"
-version = "0.2.0"
-description = "Quantitative pricing framework for solar energy derivatives using NASA satellite data"
+version = "0.5.0"
+description = "Policy-aware quantitative pricing and risk framework for renewable-energy derivatives"
 readme = "README.md"
 license = {text = "MIT"}
 authors = [
@@ -16,13 +16,18 @@ maintainers = [
 ]
 keywords = [
     "solar",
+    "wind",
+    "hydro",
     "energy",
     "derivatives",
     "pricing",
     "quantitative-finance",
     "renewable-energy",
     "NASA",
-    "satellite-data"
+    "satellite-data",
+    "policy",
+    "risk-analysis",
+    "provenance"
 ]
 classifiers = [
     "Development Status :: 4 - Beta",
@@ -64,6 +69,8 @@ api = [
     "fastapi>=0.95.0",
     "uvicorn>=0.21.0",
     "pydantic>=1.10.0",
+    "slowapi>=0.1.9",
+    "httpx>=0.24.0",
 ]
 dashboard = [
     "streamlit>=1.20.0",
@@ -76,6 +83,9 @@ all = [
     "pytest-cov>=3.0.0",
     "fastapi>=0.95.0",
     "uvicorn>=0.21.0",
+    "pydantic>=1.10.0",
+    "slowapi>=0.1.9",
+    "httpx>=0.24.0",
     "streamlit>=1.20.0",
     "plotly>=5.13.0",
 ]
@@ -91,7 +101,7 @@ spk-derivatives = "spk_derivatives.cli:main"
 
 [tool.setuptools]
 packages = ["spk_derivatives"]
-package-dir = {"spk_derivatives" = "energy_derivatives/spk_derivatives"}
+package-dir = {spk_derivatives = "energy_derivatives/spk_derivatives"}
 
 [tool.black]
 line-length = 100
@@ -106,7 +116,7 @@ python_classes = ["Test*"]
 python_functions = ["test_*"]
 addopts = [
     "--verbose",
-    "--cov=energy_derivatives",
+    "--cov=spk_derivatives",
     "--cov-report=html",
     "--cov-report=term-missing",
 ]
@@ -119,7 +129,7 @@ disallow_untyped_defs = false
 ignore_missing_imports = true
 
 [tool.coverage.run]
-source = ["energy_derivatives"]
+source = ["spk_derivatives"]
 omit = [
     "*/tests/*",
     "*/test_*.py",

@@ -1,0 +1,197 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Spectating101/spk-derivatives/protocol/schema/pricing-result-package.v0.1.schema.json",
+  "title": "SPK Derivatives Pricing Result Package v0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "artifact_id",
+    "package_content_id",
+    "authority",
+    "exposure",
+    "model",
+    "valuation",
+    "warnings",
+    "non_claims",
+    "verification"
+  ],
+  "properties": {
+    "schema": {
+      "const": "spk_derivatives.pricing_result_package.v0.1"
+    },
+    "artifact_id": {"$ref": "#/$defs/sha256"},
+    "package_content_id": {"$ref": "#/$defs/sha256"},
+    "authority": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "source_schema",
+        "profile_id",
+        "assessment_id",
+        "source_package_content_id",
+        "claim_id",
+        "case_id",
+        "policy_id",
+        "policy_version",
+        "decision_id",
+        "external_reading",
+        "evidence_hash",
+        "evidence_assurance"
+      ],
+      "properties": {
+        "kind": {"const": "policy-lab-claim-assessment"},
+        "source_schema": {"const": "policylab.claim_assessment_package.v0.1"},
+        "profile_id": {"const": "policylab.energy_linked_claim.v0"},
+        "assessment_id": {"$ref": "#/$defs/sha256"},
+        "source_package_content_id": {"$ref": "#/$defs/sha256"},
+        "claim_id": {"type": "string", "minLength": 1},
+        "case_id": {"type": "string", "minLength": 1},
+        "policy_id": {"type": "string", "minLength": 1},
+        "policy_version": {"type": ["string", "null"]},
+        "decision_id": {"$ref": "#/$defs/sha256"},
+        "external_reading": {
+          "enum": [
+            "ADMITTED_WITH_LIMIT_UNDER_POLICY",
+            "ADMITTED_UNDER_POLICY"
+          ]
+        },
+        "evidence_hash": {"$ref": "#/$defs/sha256"},
+        "evidence_assurance": {
+          "type": "string",
+          "pattern": "^L[0-4]$"
+        }
+      }
+    },
+    "exposure": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "subject",
+        "period_utc",
+        "admitted_quantity",
+        "quantity_unit",
+        "evidence_quantity",
+        "evidence_unit",
+        "binding_calculators",
+        "settlement_scenario_only"
+      ],
+      "properties": {
+        "subject": {"type": "string", "minLength": 1},
+        "period_utc": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["start", "end"],
+          "properties": {
+            "start": {"type": "string", "minLength": 1},
+            "end": {"type": "string", "minLength": 1}
+          }
+        },
+        "admitted_quantity": {"type": "number", "minimum": 0},
+        "quantity_unit": {"type": "string", "minLength": 1},
+        "evidence_quantity": {"type": "number", "minimum": 0},
+        "evidence_unit": {"type": "string", "minLength": 1},
+        "binding_calculators": {
+          "type": "array",
+          "items": {"type": "string", "minLength": 1}
+        },
+        "settlement_scenario_only": {"type": ["boolean", "null"]}
+      }
+    },
+    "model": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["engine", "inputs", "reproducibility", "assumptions"],
+      "properties": {
+        "engine": {"enum": ["binomial", "monte-carlo"]},
+        "inputs": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "spot_per_quantity_unit",
+            "strike_per_quantity_unit",
+            "maturity_years",
+            "risk_free_rate",
+            "volatility",
+            "payoff_type"
+          ],
+          "properties": {
+            "spot_per_quantity_unit": {"type": "number", "minimum": 0},
+            "strike_per_quantity_unit": {"type": "number", "minimum": 0},
+            "maturity_years": {"type": "number", "exclusiveMinimum": 0},
+            "risk_free_rate": {"type": "number"},
+            "volatility": {"type": "number", "minimum": 0},
+            "payoff_type": {"type": "string", "minLength": 1}
+          }
+        },
+        "reproducibility": {
+          "type": "object",
+          "required": ["spk_derivatives_version"],
+          "properties": {
+            "spk_derivatives_version": {"type": "string", "minLength": 1},
+            "steps": {"type": "integer", "minimum": 1},
+            "num_simulations": {"type": "integer", "minimum": 1},
+            "seed": {"type": ["integer", "null"]}
+          },
+          "additionalProperties": false
+        },
+        "assumptions": {
+          "type": "array",
+          "items": {"type": "string"}
+        }
+      }
+    },
+    "valuation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "unit_price",
+        "admitted_quantity",
+        "quantity_unit",
+        "total_value",
+        "value_semantics"
+      ],
+      "properties": {
+        "unit_price": {"type": "number", "minimum": 0},
+        "admitted_quantity": {"type": "number", "minimum": 0},
+        "quantity_unit": {"type": "string", "minLength": 1},
+        "total_value": {"type": "number", "minimum": 0},
+        "value_semantics": {"type": "string", "minLength": 1}
+      }
+    },
+    "warnings": {
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "non_claims": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"type": "string"}
+    },
+    "verification": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "algorithm",
+        "canonicalization",
+        "artifact_identity",
+        "package_content_identity"
+      ],
+      "properties": {
+        "algorithm": {"const": "SHA-256"},
+        "canonicalization": {
+          "const": "python-json-sort-keys-compact-utf8-v0.1"
+        },
+        "artifact_identity": {"type": "string", "minLength": 1},
+        "package_content_identity": {"type": "string", "minLength": 1}
+      }
+    }
+  },
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    }
+  }
+}
