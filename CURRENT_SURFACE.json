@@ -12,6 +12,19 @@
     "responsibility": "evidence, admissibility, policy constraints, governance",
     "downstream_responsibility": "pricing, risk, scenario, policy-sensitivity, market-model sensitivity and quantitative consequences"
   },
+  "policy_market_bridge": {
+    "module": "spk_derivatives.policy_market_bridge",
+    "compatibility_manifest": "POLICY_LAB_COMPATIBILITY.json",
+    "upstream_repository": "Spectating101/solarpunk-coin",
+    "upstream_commit": "55fd6f2cf2eed25b589e91b5e3161e6ced68f5de",
+    "upstream_schema_git_blob_sha": "5b1a312ee714abaf96453a3be5c628556becef36",
+    "binding_schema": "spk_derivatives.policy_market_binding.v0.1",
+    "binding_schema_path": "protocol/schema/policy-market-binding.v0.1.schema.json",
+    "principle": "Policy Lab claim authority and downstream market quantity are separate contracts; SPK never silently reinterprets a semantic claim unit as physical energy or a market settlement unit",
+    "exact_physical_conversion": "exact-si-energy-conversion is allowed only for literal Wh/kWh/MWh/GWh/TWh units",
+    "semantic_mapping": "semantic claim units require an explicit factor, named mapping authority, reference and explanation; the deterministic binding records the declaration but does not make it legally or empirically true",
+    "bridge_document": "docs/POLICY_LAB_SPK_BRIDGE.md"
+  },
   "market_model_boundary": {
     "principle": "physical quantity and market price are separate analytical processes",
     "physical_quantity": "SPK consumes an explicitly admitted Policy Lab quantity and never derives market price from that quantity implicitly",
@@ -46,10 +59,12 @@
     "policy_comparison_schema": "spk_derivatives.policy_comparison_package.v0.1",
     "market_risk_schema": "spk_derivatives.market_risk_package.v0.1",
     "scenario_set_schema": "spk_derivatives.scenario_set.v0.1",
+    "policy_market_binding_schema": "spk_derivatives.policy_market_binding.v0.1",
     "schema_path": "protocol/schema/pricing-result-package.v0.1.schema.json",
     "comparison_schema_path": "protocol/schema/policy-comparison-package.v0.1.schema.json",
     "market_risk_schema_path": "protocol/schema/market-risk-package.v0.1.schema.json",
     "scenario_set_schema_path": "protocol/schema/scenario-set.v0.1.schema.json",
+    "policy_market_binding_schema_path": "protocol/schema/policy-market-binding.v0.1.schema.json",
     "identity_algorithm": "SHA-256",
     "canonicalization": "python-json-sort-keys-compact-utf8-v0.1",
     "scenario_binding": "market-risk artifacts bind the deterministic scenario_set_id used for valuation"
@@ -73,6 +88,7 @@
     "scenario_sets": "market-price and joint volume-price scenario values can be bound to deterministic manifests with source/model/seed declarations; CLI workflows can build, verify and consume those identities",
     "analytic_monte_carlo": "Black-76 and Bachelier analytic values can be checked against seeded Monte Carlo estimators under matching assumptions",
     "historical_replay": "MAE, RMSE, bias and correlation diagnostics are available for aligned observed/modeled series",
+    "policy_market_binding": "claim-to-market mappings carry deterministic binding identities covering the exact upstream Policy Lab decision and downstream mapping basis",
     "interpretation": "implementation consistency and replay diagnostics do not establish empirical model correctness"
   },
   "empirical_market_adapters": {
@@ -131,11 +147,13 @@
     "market_calibration_and_risk": "docs/MARKET_CALIBRATION_AND_RISK.md",
     "scenario_identity_and_model_validation": "docs/SCENARIO_IDENTITY_AND_MODEL_VALIDATION.md",
     "supported_quantitative_surface": "docs/SUPPORTED_QUANTITATIVE_SURFACE.md",
-    "aemo_nem_empirical_case": "docs/AEMO_NEM_EMPIRICAL_CASE.md"
+    "aemo_nem_empirical_case": "docs/AEMO_NEM_EMPIRICAL_CASE.md",
+    "policy_lab_spk_bridge": "docs/POLICY_LAB_SPK_BRIDGE.md"
   },
   "non_claims": [
     "SPK Derivatives is not a policy authority.",
     "SPK Derivatives does not upgrade Policy Lab evidence assurance.",
+    "A deterministic Policy Lab-to-market binding records a declared mapping but does not establish that mapping as legally, empirically, or commercially authoritative.",
     "Policy sensitivity is not the same thing as market/model sensitivity or evidence truth.",
     "Historical calibration does not automatically establish a risk-neutral pricing measure.",
     "Analytic-versus-Monte-Carlo agreement validates implementation consistency under common assumptions, not market-model correctness.",
