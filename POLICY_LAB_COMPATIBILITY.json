@@ -1,0 +1,51 @@
+{
+  "schema": "spk_derivatives.policy_lab_compatibility.v0.1",
+  "status": "pinned-reference",
+  "upstream": {
+    "repository": "Spectating101/solarpunk-coin",
+    "commit": "55fd6f2cf2eed25b589e91b5e3161e6ced68f5de",
+    "schema_path": "protocol/schema/claim-assessment-package.v0.1.schema.json",
+    "schema_git_blob_sha": "5b1a312ee714abaf96453a3be5c628556becef36",
+    "schema": "policylab.claim_assessment_package.v0.1",
+    "profile": "policylab.energy_linked_claim.v0"
+  },
+  "accepted_external_readings": [
+    "ADMITTED_WITH_LIMIT_UNDER_POLICY",
+    "ADMITTED_UNDER_POLICY"
+  ],
+  "blocked_external_readings": [
+    "BLOCKED_UNDER_POLICY"
+  ],
+  "consumed_authority_fields": [
+    "assessment_id",
+    "package_content_id",
+    "claim.claim_id",
+    "claim.case_id",
+    "claim.subject",
+    "claim.request_mode",
+    "claim.period.canonical_utc",
+    "evidence.assurance",
+    "evidence.evidence_hash",
+    "evidence.eligible_quantity",
+    "profile.id",
+    "profile.unit_mapping",
+    "evaluations[].policy.id",
+    "evaluations[].policy.version",
+    "evaluations[].policy.name",
+    "evaluations[].decision_id",
+    "evaluations[].external_reading",
+    "evaluations[].supported_quantity",
+    "evaluations[].binding_calculators",
+    "evaluations[].rule_evaluations[].warnings",
+    "settlement.scenario_only"
+  ],
+  "consumer_rules": [
+    "SPK Derivatives never recomputes or upgrades Policy Lab evidence assurance.",
+    "A blocked Policy Lab evaluation never becomes a downstream exposure.",
+    "Multiple admitted policy evaluations require explicit policy selection.",
+    "The admitted claim unit is preserved exactly at the Policy Lab boundary.",
+    "A semantic claim unit is never assumed equivalent to physical energy or a market settlement unit.",
+    "Any claim-unit to market-quantity mapping must be represented as a separate SPK policy-market binding with its own identity and declared basis."
+  ],
+  "drift_policy": "A new Policy Lab schema/profile/blob is incompatible until reviewed and this manifest is updated deliberately."
+}
