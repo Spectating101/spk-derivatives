@@ -6,6 +6,7 @@ from spk_derivatives.artifacts import SPK_CANONICALIZATION, SPK_PRICING_PACKAGE_
 from spk_derivatives.market_artifacts import SPK_MARKET_RISK_SCHEMA
 from spk_derivatives.policy_analysis import SPK_POLICY_COMPARISON_SCHEMA
 from spk_derivatives.policy_lab import POLICY_LAB_PROFILE, POLICY_LAB_SCHEMA
+from spk_derivatives.policy_market_bridge import POLICY_MARKET_BINDING_SCHEMA
 from spk_derivatives.scenario_set import SCENARIO_SET_SCHEMA
 
 
@@ -18,10 +19,14 @@ def test_current_surface_matches_runtime_contracts():
     assert surface["package"]["version"] == spk_derivatives.__version__
     assert surface["authority_boundary"]["claim_assessment_schema"] == POLICY_LAB_SCHEMA
     assert surface["authority_boundary"]["profile_id"] == POLICY_LAB_PROFILE
+    assert surface["policy_market_bridge"]["binding_schema"] == POLICY_MARKET_BINDING_SCHEMA
+    assert surface["policy_market_bridge"]["upstream_repository"] == "Spectating101/solarpunk-coin"
+    assert "semantic claim unit" in surface["policy_market_bridge"]["principle"]
     assert surface["artifact_protocol"]["pricing_result_schema"] == SPK_PRICING_PACKAGE_SCHEMA
     assert surface["artifact_protocol"]["policy_comparison_schema"] == SPK_POLICY_COMPARISON_SCHEMA
     assert surface["artifact_protocol"]["market_risk_schema"] == SPK_MARKET_RISK_SCHEMA
     assert surface["artifact_protocol"]["scenario_set_schema"] == SCENARIO_SET_SCHEMA
+    assert surface["artifact_protocol"]["policy_market_binding_schema"] == POLICY_MARKET_BINDING_SCHEMA
     assert surface["artifact_protocol"]["canonicalization"] == SPK_CANONICALIZATION
     assert "scenario_set_id" in surface["artifact_protocol"]["scenario_binding"]
     assert "black-76-forward-option" in surface["market_model_boundary"]["market_models"]
@@ -46,6 +51,7 @@ def test_current_surface_matches_runtime_contracts():
     assert "authority_cap" in surface["joint_volume_price_risk"]
     assert "scenario_sets" in surface["reproducibility"]
     assert "analytic_monte_carlo" in surface["reproducibility"]
+    assert "policy_market_binding" in surface["reproducibility"]
     assert "aemo_nem" in surface["empirical_market_adapters"]
     assert surface["empirical_market_adapters"]["aemo_nem"]["price_unit"] == "AUD/MWh"
     assert "aemo_ou_holdout" in surface["empirical_validation"]
@@ -68,6 +74,9 @@ def test_current_surface_paths_exist():
     assert (root / surface["artifact_protocol"]["comparison_schema_path"]).is_file()
     assert (root / surface["artifact_protocol"]["market_risk_schema_path"]).is_file()
     assert (root / surface["artifact_protocol"]["scenario_set_schema_path"]).is_file()
+    assert (root / surface["artifact_protocol"]["policy_market_binding_schema_path"]).is_file()
+    assert (root / surface["policy_market_bridge"]["compatibility_manifest"]).is_file()
+    assert (root / surface["policy_market_bridge"]["bridge_document"]).is_file()
     assert (root / surface["supported_surface"]["scope_document"]).is_file()
     assert (
         root / surface["empirical_market_adapters"]["aemo_nem"]["case_document"]
@@ -83,3 +92,4 @@ def test_current_surface_paths_exist():
     ).is_file()
     assert (root / surface["validation"]["supported_quantitative_surface"]).is_file()
     assert (root / surface["validation"]["aemo_nem_empirical_case"]).is_file()
+    assert (root / surface["validation"]["policy_lab_spk_bridge"]).is_file()
