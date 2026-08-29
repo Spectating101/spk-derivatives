@@ -10,6 +10,7 @@ The following modules define the supported research/beta architecture:
 
 - `policy_lab` — fail-closed Policy Lab interoperability;
 - `policy_market_bridge` — explicit, deterministic claim-unit to market-quantity binding without semantic-unit laundering;
+- `policy_bound_market_risk` — end-to-end downstream package preserving the original Policy Lab claim, mapping identity, mapped market quantity, scenario identity, contract and risk result;
 - `artifacts` — deterministic pricing result packages;
 - `policy_analysis` — explicit governance-policy sensitivity;
 - `market_models` — Black-76, Bachelier, and Gaussian OU market models;
@@ -22,7 +23,7 @@ The following modules define the supported research/beta architecture:
 - `scenario_risk` — fixed-quantity market-risk distributions and model sensitivity;
 - `joint_risk` — authority-bounded joint realized-volume/price scenarios;
 - `model_validation` — analytic/Monte-Carlo consistency and generic replay diagnostics;
-- `market_artifacts` — deterministic market-risk packages with scenario-set binding;
+- `market_artifacts` — deterministic market-risk packages with scenario-set binding when the Policy Lab and market quantity units already match;
 - `aemo_nem` — source-hashed public AEMO NEM `DISPATCH.PRICE` ingestion for the first real-market case;
 - `empirical_validation` — chronological AEMO OU holdout validation against persistence;
 - `cli` — canonical command-line verification and policy/market workflows.
@@ -42,7 +43,9 @@ No implicit semantic conversion is allowed. Literal physical `Wh/kWh/MWh/GWh/TWh
 
 The mapping receives its own deterministic `binding_id`. That identity proves which mapping was declared; it does not establish that the mapping is legally, empirically, or commercially authoritative.
 
-See `docs/POLICY_LAB_SPK_BRIDGE.md` and `protocol/schema/policy-market-binding.v0.1.schema.json`.
+`policy_bound_market_risk` is the compositional proof: it requires a valid Policy Lab exposure, a valid mapping, a deterministic market-price scenario set and a unit-compatible contract, then emits one deterministic package in which the original admitted claim and mapped market exposure remain separate. A mutated Policy Lab identity, mapping, market quantity, scenario identity or downstream artifact fails validation rather than being silently normalized.
+
+See `docs/POLICY_LAB_SPK_BRIDGE.md`, `protocol/schema/policy-market-binding.v0.1.schema.json`, and `protocol/schema/policy-bound-market-risk-package.v0.1.schema.json`.
 
 ## Empirical adapter policy
 
@@ -93,7 +96,7 @@ The intended 1.0 gate is:
 4. market-specific empirical cases identify source, sample, transformation, intervention/filtering, timestamp, and calibration assumptions;
 5. empirical scenario inputs are source-hashed and bound into downstream deterministic artifacts;
 6. empirical model claims are scored on chronological holdouts against simple benchmarks before they can be promoted;
-7. Policy Lab consumer compatibility is pinned, and semantic claim-to-market mappings are identity-bound rather than implicit;
+7. Policy Lab consumer compatibility is pinned, semantic claim-to-market mappings are identity-bound rather than implicit, and composed market-risk artifacts retain both sides of that boundary;
 8. compatibility modules are either promoted with equivalent validation or explicitly remain non-canonical.
 
 This document is a scope statement, not a production-readiness claim. SPK Derivatives remains research/beta software.
