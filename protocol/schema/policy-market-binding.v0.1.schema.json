@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://spectating101.github.io/spk-derivatives/schema/policy-market-binding.v0.1.schema.json",
+  "title": "SPK Derivatives Policy Market Binding v0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "binding_id",
+    "assessment_id",
+    "source_package_content_id",
+    "claim_id",
+    "policy_id",
+    "decision_id",
+    "evidence_hash",
+    "evidence_assurance",
+    "admitted_quantity",
+    "claim_unit",
+    "market_quantity",
+    "market_quantity_unit",
+    "factor",
+    "basis_kind",
+    "authority",
+    "reference",
+    "semantics",
+    "period_start_utc",
+    "period_end_utc",
+    "non_claims"
+  ],
+  "properties": {
+    "schema": {"const": "spk_derivatives.policy_market_binding.v0.1"},
+    "binding_id": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "assessment_id": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "source_package_content_id": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "claim_id": {"type": "string", "minLength": 1},
+    "policy_id": {"type": "string", "minLength": 1},
+    "decision_id": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "evidence_hash": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "evidence_assurance": {"type": "string", "pattern": "^L[0-4]$"},
+    "admitted_quantity": {"type": "number", "minimum": 0},
+    "claim_unit": {"type": "string", "minLength": 1},
+    "market_quantity": {"type": "number", "minimum": 0},
+    "market_quantity_unit": {"type": "string", "minLength": 1},
+    "factor": {"type": "number", "exclusiveMinimum": 0},
+    "basis_kind": {
+      "enum": ["exact-si-energy-conversion", "declared-semantic-mapping"]
+    },
+    "authority": {"type": "string", "minLength": 1},
+    "reference": {"type": "string", "minLength": 1},
+    "semantics": {"type": "string", "minLength": 1},
+    "period_start_utc": {"type": "string", "minLength": 1},
+    "period_end_utc": {"type": "string", "minLength": 1},
+    "non_claims": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"type": "string", "minLength": 1}
+    }
+  }
+}
